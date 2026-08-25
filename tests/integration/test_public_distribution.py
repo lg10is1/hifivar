@@ -119,3 +119,12 @@ def test_ci_separates_python310_core_from_workflow_and_forces_utf8() -> None:
     assert "python -m pytest tests/unit -p no:cacheprovider" in ci
     assert "if: matrix.python != '3.10'" in ci
     assert 'python -m pip install ".[dev,workflow]"' in ci
+
+
+def test_distribution_ci_uses_current_node24_actions() -> None:
+    distribution = _text(".github/workflows/distribution.yml")
+
+    assert distribution.count("actions/checkout@v7") == 2
+    assert "actions/setup-python@v7" in distribution
+    assert "actions/checkout@v4" not in distribution
+    assert "actions/setup-python@v5" not in distribution
