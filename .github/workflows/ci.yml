@@ -7,6 +7,9 @@ on:
 permissions:
   contents: read
 
+env:
+  PYTHONUTF8: "1"
+
 jobs:
   python-smoke:
     strategy:
@@ -21,16 +24,24 @@ jobs:
             python: "3.12"
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
           cache: pip
+      - name: Install core development dependencies on Python 3.10
+        if: matrix.python == '3.10'
+        run: python -m pip install --upgrade pip && python -m pip install ".[dev]"
       - name: Install development and workflow dependencies
+        if: matrix.python != '3.10'
         run: python -m pip install --upgrade pip && python -m pip install ".[dev,workflow]"
       - name: Syntax and package build
         run: python -m compileall src && python -m build
+      - name: Python 3.10 core tests
+        if: matrix.python == '3.10'
+        run: python -m pytest tests/unit -p no:cacheprovider
       - name: Unit, fake-tool, CLI, package, and Snakemake smoke tests
+        if: matrix.python != '3.10'
         run: python -m pytest -p no:cacheprovider
       - name: Installed resource smoke
         run: python -c "from hifivar.package_resources import installed_workflow_root; assert installed_workflow_root().joinpath('Snakefile').is_file()"

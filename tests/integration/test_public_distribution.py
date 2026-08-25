@@ -106,3 +106,16 @@ def test_public_docs_disclose_execution_and_container_boundaries() -> None:
     assert "`/data/...` and" in quickstart
     assert "`/work/...` path" in quickstart
     assert "does not contain PAV, DeepVariant" in containers
+
+
+def test_ci_separates_python310_core_from_workflow_and_forces_utf8() -> None:
+    ci = _text(".github/workflows/ci.yml")
+
+    assert 'PYTHONUTF8: "1"' in ci
+    assert "actions/checkout@v7" in ci
+    assert "actions/setup-python@v7" in ci
+    assert "if: matrix.python == '3.10'" in ci
+    assert 'python -m pip install ".[dev]"' in ci
+    assert "python -m pytest tests/unit -p no:cacheprovider" in ci
+    assert "if: matrix.python != '3.10'" in ci
+    assert 'python -m pip install ".[dev,workflow]"' in ci
