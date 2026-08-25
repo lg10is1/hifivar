@@ -1,0 +1,2 @@
+sample_id	input	input_type	sex
+HG002	/data/alignments/HG002.bam	bam	male

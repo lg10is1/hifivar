@@ -1,0 +1,40 @@
+Bootstrap: docker
+From: python:3.12-slim-bookworm
+
+%labels
+    org.opencontainers.image.title HiFiVar
+    org.opencontainers.image.version 0.1.0rc1
+    org.opencontainers.image.licenses Apache-2.0
+    org.opencontainers.image.description HiFiVar core and Snakemake workflow; external bioinformatics tools are not bundled
+
+%environment
+    export PYTHONUNBUFFERED=1
+    export PYTHONDONTWRITEBYTECODE=1
+    export PIP_NO_CACHE_DIR=1
+
+%files
+    pyproject.toml /opt/hifivar-src/pyproject.toml
+    README.md /opt/hifivar-src/README.md
+    LICENSE /opt/hifivar-src/LICENSE
+    MANIFEST.in /opt/hifivar-src/MANIFEST.in
+    src /opt/hifivar-src/src
+    workflow /opt/hifivar-src/workflow
+
+%post
+    cd /opt/hifivar-src
+    python -m pip install --upgrade pip
+    python -m pip install ".[workflow]"
+
+%runscript
+    exec hifivar "$@"
+
+%test
+    hifivar --version
+    hifivar config validate
+    python -c "from hifivar.package_resources import installed_workflow_root; assert installed_workflow_root().joinpath('Snakefile').is_file()"
+
+%help
+    HiFiVar 0.1.0rc1 core container.
+    Run `apptainer run hifivar_0.1.0rc1.sif --help` for the CLI.
+    External bioinformatics tools, references, databases, and caller images are
+    not included in this core image.

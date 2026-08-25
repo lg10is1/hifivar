@@ -1,0 +1,46 @@
+{% set name = "hifivar" %}
+{% set version = "0.1.0rc1" %}
+
+# Build with both declared source channels:
+# conda build -c conda-forge -c bioconda conda-recipe
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  path: ..
+
+build:
+  noarch: python
+  number: 0
+  entry_points:
+    - hifivar = hifivar.cli:main
+
+requirements:
+  host:
+    - python >=3.10
+    - pip
+    - setuptools >=77
+  run:
+    - python >=3.10
+    - pyyaml >=6
+    - snakemake-minimal >=8,<10
+
+test:
+  imports:
+    - hifivar
+    - hifivar.package_resources
+  commands:
+    - hifivar --version
+    - hifivar config validate
+    - python -c "from hifivar.package_resources import installed_workflow_root; assert installed_workflow_root().joinpath('Snakefile').is_file()"
+
+about:
+  summary: Modular PacBio HiFi whole-genome variant analysis framework
+  description: |
+    HiFiVar orchestrates established bioinformatics tools through versioned,
+    modular Snakemake workflows. External callers, references, databases, and
+    large scientific resources are deployed separately.
+  license: Apache-2.0
+  license_file: LICENSE

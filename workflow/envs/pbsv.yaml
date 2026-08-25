@@ -1,0 +1,7 @@
+name: hifivar-pbsv-2.11.0
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - pbsv=2.11.0

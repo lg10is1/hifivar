@@ -1,0 +1,7 @@
+name: hifivar-sniffles2-2.8.0
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - sniffles=2.8.0

@@ -1,0 +1,7 @@
+name: hifivar-sawfish-2.2.1
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - sawfish=2.2.1

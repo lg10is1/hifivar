@@ -1,0 +1,51 @@
+project:
+  name: hifivar-example
+
+reference:
+  fasta: /data/reference/GRCh38.fa
+  build: GRCh38
+
+samples:
+  sheet: /work/samples.tsv
+
+runtime:
+  threads: 8
+
+paths:
+  workdir: /work/work
+  outdir: /work/results
+
+logging:
+  level: INFO
+  file: /work/logs/hifivar.log
+
+# Enable one biological branch only after its external runtime is provisioned.
+small:
+  enabled: false
+
+sv:
+  enabled: false
+
+tr:
+  enabled: false
+
+phasing:
+  enabled: false
+
+assembly:
+  enabled: false
+
+assembly_sv:
+  enabled: false
+
+review:
+  enabled: false
+
+annotation:
+  enabled: false
+
+cohort:
+  enabled: false
+
+benchmark:
+  enabled: false

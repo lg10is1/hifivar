@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: If you use HiFiVar, please cite the software release and each enabled external tool.
+title: HiFiVar
+type: software
+version: 0.1.0rc1
+date-released: 2026-08-25
+license: Apache-2.0
+authors:
+  - name: HiFiVar contributors
+repository-code: https://github.com/lg10is1/hifivar

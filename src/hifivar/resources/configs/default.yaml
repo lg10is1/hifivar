@@ -1,0 +1,306 @@
+project:
+  name: hifivar
+
+reference:
+  fasta: null
+  build: null
+
+samples:
+  sheet: null
+
+runtime:
+  threads: 1
+  tmpdir: null
+
+paths:
+  workdir: null
+  outdir: null
+
+logging:
+  level: INFO
+  file: null
+
+workflow:
+  preset: standard
+
+alignment:
+  tool: pbmm2
+  output_format: bam
+  threads: 8
+  memory_mb: 32000
+  runtime_minutes: 1440
+  overwrite: false
+  pbmm2_preset: CCS
+  pbmm2_log_level: INFO
+  index_threads: 4
+  bam_index_format: auto
+
+small:
+  enabled: false
+  execution_mode: native
+  deepvariant_executable: run_deepvariant
+  deepvariant_image: null
+  model_type: PACBIO
+  threads: 16
+  memory_mb: 64000
+  runtime_minutes: 2880
+  overwrite: false
+
+assembly_sv:
+  enabled: false
+  overwrite: false
+  pav:
+    enabled: true
+    executable: snakemake
+    snakefile: PAV_SNAKEFILE_PENDING_LINUX_VERIFICATION
+    version: VERSION_PENDING_LINUX_VERIFICATION
+    threads: 32
+    memory_mb: 64000
+    runtime_minutes: 2880
+  svim_asm:
+    enabled: true
+    executable: svim-asm
+    minimap2_executable: minimap2
+    samtools_executable: samtools
+    bgzip_executable: bgzip
+    tabix_executable: tabix
+    threads: 16
+    memory_mb: 32000
+    runtime_minutes: 1440
+
+sv:
+  enabled: false
+  overwrite: false
+  sawfish:
+    enabled: true
+    executable: sawfish
+    threads: 16
+    memory_mb: 32000
+    runtime_minutes: 1440
+    disable_cnv: false
+  sniffles2:
+    enabled: true
+    executable: sniffles
+    threads: 8
+    memory_mb: 16000
+    runtime_minutes: 720
+    minimum_support: null
+    minimum_sv_length: 50
+  pbsv:
+    enabled: true
+    executable: pbsv
+    threads: 8
+    memory_mb: 32000
+    runtime_minutes: 1440
+  cutesv:
+    enabled: true
+    executable: cuteSV
+    threads: 8
+    memory_mb: 16000
+    runtime_minutes: 720
+    minimum_support: 10
+    minimum_sv_size: 30
+    max_cluster_bias_ins: 1000
+    diff_ratio_merging_ins: 0.9
+    max_cluster_bias_del: 1000
+    diff_ratio_merging_del: 0.5
+    genotype: true
+  finalization:
+    bgzip_executable: bgzip
+    tabix_executable: tabix
+  harmonization:
+    enabled: false
+    backend: jasmine
+    jasmine_executable: jasmine
+    truvari_executable: truvari
+    bgzip_executable: bgzip
+    tabix_executable: tabix
+    threads: 8
+    memory_mb: 32000
+    runtime_minutes: 1440
+    max_dist: 1000
+    distance_type: linear
+    overwrite: false
+    input_vcfs: {}
+
+tr:
+  enabled: false
+  catalog: null
+  catalog_reference_build: null
+  executable: trgt
+  bcftools_executable: bcftools
+  samtools_executable: samtools
+  threads: 8
+  memory_mb: 16000
+  runtime_minutes: 720
+  preset: wgs
+  karyotype: auto
+  overwrite: false
+
+phasing:
+  enabled: false
+  backend: hiphase
+  executable: hiphase
+  tabix_executable: tabix
+  threads: 16
+  memory_mb: 32000
+  runtime_minutes: 1440
+  overwrite: false
+
+assembly:
+  enabled: false
+  backend: hifiasm
+  executable: hifiasm
+  threads: 32
+  memory_mb: 128000
+  runtime_minutes: 4320
+  overwrite: false
+
+review:
+  enabled: false
+  selection_file: null
+  igv_executable: igv.sh
+  flank_bp: 500
+  threads: 1
+  memory_mb: 8000
+  runtime_minutes: 240
+  overwrite: false
+
+annotation:
+  enabled: false
+  input_manifest: null
+  overwrite: false
+  threads: 4
+  memory_mb: 16000
+  runtime_minutes: 480
+  annovar_enabled: false
+  annovar_executable: table_annovar.pl
+  annovar_version: null
+  annovar_database_root: null
+  annovar_database_version: null
+  annovar_protocols:
+    - refGeneWithVer
+  annovar_operations:
+    - g
+  vep_enabled: false
+  vep_executable: vep
+  vep_cache_directory: null
+  vep_cache_version: null
+  vep_species: homo_sapiens
+  vep_assembly: GRCh38
+  overlap_enabled: false
+  gene_bed: null
+  gene_version: null
+  exon_bed: null
+  exon_version: null
+  regulatory_bed: null
+  regulatory_version: null
+  repeat_bed: null
+  repeat_version: null
+  segdup_bed: null
+  segdup_version: null
+  functional_enabled: false
+  functional_selection_file: null
+  alphagenome_model_version: null
+  alphagenome_modalities: []
+
+cohort:
+  enabled: false
+  cohort_id: null
+  input_manifest: null
+  overwrite: false
+  small_variants:
+    enabled: false
+    glnexus_executable: glnexus_cli
+    bcftools_executable: bcftools
+    preset: DeepVariantWGS
+    threads: 8
+    memory_gb: 32
+    runtime_minutes: 1440
+  sv:
+    enabled: false
+    threads: 1
+    memory_mb: 8000
+    runtime_minutes: 240
+  tr:
+    enabled: false
+    threads: 1
+    memory_mb: 8000
+    runtime_minutes: 240
+
+benchmark:
+  enabled: false
+  benchmark_id: null
+  sample_id: null
+  overwrite: false
+  small_variants:
+    enabled: false
+    query_vcf: null
+    truth_vcf: null
+    truth_version: null
+    truth_source: null
+    confident_bed: null
+    confident_bed_version: null
+    happy_executable: hap.py
+    happy_version: null
+    metrics_compression: gzip
+    engine: xcmp
+    summary_filter: PASS
+    threads: 8
+    memory_mb: 16000
+    runtime_minutes: 480
+    stratifications: []
+  sv:
+    enabled: false
+    query_vcf: null
+    truth_vcf: null
+    truth_version: null
+    truth_source: null
+    confident_bed: null
+    confident_bed_version: null
+    region_class: confident
+    truvari_executable: truvari
+    threads: 1
+    memory_mb: 16000
+    runtime_minutes: 480
+    refdist: null
+    pctseq: null
+    pctsize: null
+    pctovl: null
+    sizemin: null
+    sizemax: null
+    bnddist: null
+    pass_only: false
+    size_bins: []
+  assembly_sv:
+    enabled: false
+    query_vcf: null
+    truth_vcf: null
+    truth_version: null
+    truth_source: null
+    confident_bed: null
+    confident_bed_version: null
+    region_class: confident
+    truvari_executable: truvari
+    threads: 1
+    memory_mb: 16000
+    runtime_minutes: 480
+    refdist: null
+    pctseq: null
+    pctsize: null
+    pctovl: null
+    sizemin: null
+    sizemax: null
+    bnddist: null
+    pass_only: false
+    size_bins: []
+  tr:
+    enabled: false
+    query_vcf: null
+    truth_vcf: null
+    truth_version: null
+    truth_source: null
+    catalog_id: null
+    threads: 1
+    memory_mb: 4000
+    runtime_minutes: 120

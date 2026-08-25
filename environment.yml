@@ -1,0 +1,11 @@
+name: hifivar
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.12
+  - pip>=24
+  - pyyaml>=6
+  - snakemake-minimal>=8,<10
+  - pip:
+      - .

@@ -1,0 +1,9 @@
+include LICENSE README.md ARCHITECTURE.md DEVELOPMENT.md CHANGELOG.md RELEASE_CHECKLIST.md
+include CITATION.cff CONTRIBUTING.md SECURITY.md environment.yml Dockerfile .dockerignore
+recursive-include docs *.md
+recursive-include workflow Snakefile *.smk *.py *.yaml
+recursive-include src/hifivar/resources *.yaml
+recursive-include conda-recipe *.yaml *.sh *.bat
+recursive-include containers *.def *.md
+recursive-include examples *.yaml *.tsv *.md
+global-exclude __pycache__ *.py[cod] *.log *.sif *.pem *.key

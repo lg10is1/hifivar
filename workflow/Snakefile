@@ -1,0 +1,23 @@
+"""HiFiVar modular workflow entry point for optional analysis branches."""
+
+
+include: "rules/common.smk"
+include: "rules/small.smk"
+include: "rules/sv.smk"
+include: "rules/tr.smk"
+include: "rules/phasing.smk"
+include: "rules/assembly.smk"
+include: "rules/assembly_sv.smk"
+
+
+include: "rules/harmonization.smk"
+include: "rules/review.smk"
+include: "rules/annotation.smk"
+include: "rules/cohort.smk"
+include: "rules/benchmark.smk"
+rule all:
+    input:
+        WORKFLOW_TARGETS
+
+
+include: "rules/smoke.smk"

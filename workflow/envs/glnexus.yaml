@@ -1,0 +1,7 @@
+name: hifivar-glnexus-1.4.1
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - glnexus=1.4.1
+  - bcftools=1.21

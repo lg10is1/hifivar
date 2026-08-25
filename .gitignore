@@ -1,0 +1,79 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# HiFiVar runtime
+work/
+results/
+logs/
+tmp/
+*.log
+effective_config*.yaml
+.snakemake/
+
+# Local audit and conversation scratch space
+audit/
+
+# Large bioinformatics data
+*.bam
+*.bai
+*.sam
+*.cram
+*.crai
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+*.vcf.gz
+*.vcf
+*.bcf
+*.bed
+*.bed.gz
+*.tbi
+*.csi
+*.fai
+*.gzi
+*.dict
+*.fofn
+*.svsig.gz
+*.gfa
+*.fasta
+*.fa
+*.fasta.gz
+*.fa.gz
+*.sif
+*.sqsh
+
+# Local Conda/container build outputs
+conda-bld/
+*.conda
+*.tar.bz2
+
+# Permit future tiny fixtures even when their extensions match rules above.
+!tests/data/**

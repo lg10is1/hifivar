@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hifivar"
+dynamic = ["version"]
+description = "A modular PacBio HiFi whole-genome variant analysis framework"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+keywords = ["bioinformatics", "PacBio", "HiFi", "variant-calling", "Snakemake"]
+authors = [
+  { name = "HiFiVar contributors" },
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: POSIX :: Linux",
+]
+dependencies = [
+  "PyYAML>=6",
+]
+
+[project.urls]
+Homepage = "https://github.com/lg10is1/hifivar"
+Repository = "https://github.com/lg10is1/hifivar"
+Documentation = "https://github.com/lg10is1/hifivar#readme"
+Issues = "https://github.com/lg10is1/hifivar/issues"
+Changelog = "https://github.com/lg10is1/hifivar/blob/main/CHANGELOG.md"
+
+[project.scripts]
+hifivar = "hifivar.cli:main"
+
+[project.optional-dependencies]
+dev = [
+  "build>=1",
+  "pytest>=8",
+  "pytest-cov>=5",
+  "setuptools>=77",
+]
+workflow = [
+  "snakemake>=8,<10",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+version = { attr = "hifivar.__version__" }
+
+[tool.setuptools.package-data]
+hifivar = [
+  "resources/configs/*.yaml",
+  "resources/configs/presets/*.yaml",
+]
+
+[tool.setuptools.data-files]
+"hifivar/workflow" = ["workflow/Snakefile"]
+"hifivar/workflow/rules" = ["workflow/rules/*.smk"]
+"hifivar/workflow/scripts" = ["workflow/scripts/*.py"]
+"hifivar/workflow/envs" = ["workflow/envs/*.yaml"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra --strict-config --strict-markers"
+filterwarnings = [
+  "error",
+]

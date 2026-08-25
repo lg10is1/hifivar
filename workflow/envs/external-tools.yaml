@@ -1,0 +1,139 @@
+schema_version: 1
+policy:
+  generated_for: "Phase 0-4 X-02 remediation"
+  production_platform: linux-hpc
+  floating_versions_allowed: false
+  status_vocabulary:
+    mock: [PASS, FAIL, NOT_RUN]
+    official_cli: [DOCUMENTATION_REVIEWED_LOCAL_HELP_PENDING, LOCAL_HELP_VERIFIED]
+    linux_real: [PASS, FAIL, NOT_RUN]
+
+tools:
+  pbmm2:
+    target_version: "1.17.0"
+    version_constraint: "==1.17.0"
+    installation_source: "Bioconda package pbmm2"
+    execution_backend: native-conda
+    executable_or_container: pbmm2
+    wrapper_module: hifivar.pbmm2
+    version_command: [pbmm2, --version]
+    wrapper_compatibility_assumption: >-
+      The Phase 2 argv contract is compatible with the documented pbmm2 1.17.0
+      align interface; read-group TAB parsing still requires real-tool verification.
+    config_section: alignment
+    snakemake_rule: null
+    environment_spec: workflow/envs/pbmm2.yaml
+    mock_verification_status: PASS
+    official_cli_verification_status: DOCUMENTATION_REVIEWED_LOCAL_HELP_PENDING
+    linux_real_verification_status: NOT_RUN
+    official_source: "https://github.com/PacificBiosciences/pbmm2"
+
+  deepvariant:
+    target_version: "1.10.0"
+    version_constraint: "==1.10.0"
+    installation_source: "Google DeepVariant production container"
+    execution_backend: apptainer
+    executable_or_container: "docker://google/deepvariant:1.10.0"
+    container_entrypoint: /opt/deepvariant/bin/run_deepvariant
+    wrapper_module: hifivar.deepvariant
+    version_command:
+      - apptainer
+      - exec
+      - --cleanenv
+      - "docker://google/deepvariant:1.10.0"
+      - /opt/deepvariant/bin/run_deepvariant
+      - --version
+    wrapper_compatibility_assumption: >-
+      The Phase 3 PACBIO command contract is compatible with the official r1.10
+      run_deepvariant interface. Production uses Apptainer on Linux/HPC.
+    optional_backends:
+      docker:
+        image: "google/deepvariant:1.10.0"
+        status: OPTIONAL
+      native:
+        executable: run_deepvariant
+        status: OPTIONAL_UNPACKAGED
+    immutable_digest: VERSION_PENDING_LINUX_VERIFICATION
+    config_section: small
+    snakemake_rule: deepvariant_small_variants
+    environment_spec: null
+    mock_verification_status: PASS
+    official_cli_verification_status: DOCUMENTATION_REVIEWED_LOCAL_HELP_PENDING
+    linux_real_verification_status: NOT_RUN
+    official_source: "https://github.com/google/deepvariant/releases/tag/v1.10.0"
+
+  sawfish:
+    target_version: "2.2.1"
+    version_constraint: "==2.2.1"
+    installation_source: "Bioconda package sawfish"
+    execution_backend: native-conda
+    executable_or_container: sawfish
+    wrapper_module: hifivar.sawfish
+    version_command: [sawfish, --version]
+    wrapper_compatibility_assumption: >-
+      The Phase 4 discover and joint-call argv contract targets the documented
+      Sawfish 2.2.1 interface and its genotyped.sv.vcf.gz output convention.
+    config_section: sv.sawfish
+    snakemake_rule: read_based_sv
+    environment_spec: workflow/envs/sawfish.yaml
+    mock_verification_status: PASS
+    official_cli_verification_status: DOCUMENTATION_REVIEWED_LOCAL_HELP_PENDING
+    linux_real_verification_status: NOT_RUN
+    official_source: "https://github.com/PacificBiosciences/sawfish/releases/tag/v2.2.1"
+
+  sniffles2:
+    target_version: "2.8.0"
+    version_constraint: "==2.8.0"
+    installation_source: "Bioconda package sniffles"
+    execution_backend: native-conda
+    executable_or_container: sniffles
+    wrapper_module: hifivar.sniffles2
+    version_command: [sniffles, --version]
+    wrapper_compatibility_assumption: >-
+      The Phase 4 single-sample argv contract targets Sniffles2 2.8.0 and
+      coordinate-sorted indexed BAM/CRAM input.
+    config_section: sv.sniffles2
+    snakemake_rule: read_based_sv
+    environment_spec: workflow/envs/sniffles2.yaml
+    mock_verification_status: PASS
+    official_cli_verification_status: DOCUMENTATION_REVIEWED_LOCAL_HELP_PENDING
+    linux_real_verification_status: NOT_RUN
+    official_source: "https://github.com/fritzsedlazeck/Sniffles"
+
+  pbsv:
+    target_version: "2.11.0"
+    version_constraint: "==2.11.0"
+    installation_source: "Bioconda package pbsv"
+    execution_backend: native-conda
+    executable_or_container: pbsv
+    wrapper_module: hifivar.pbsv
+    version_command: [pbsv, --version]
+    wrapper_compatibility_assumption: >-
+      The Phase 4 BAM-only discover/call argv contract targets pbsv 2.11.0 and
+      retains explicit bgzip/tabix finalization outside the caller wrapper.
+    config_section: sv.pbsv
+    snakemake_rule: read_based_sv
+    environment_spec: workflow/envs/pbsv.yaml
+    mock_verification_status: PASS
+    official_cli_verification_status: DOCUMENTATION_REVIEWED_LOCAL_HELP_PENDING
+    linux_real_verification_status: NOT_RUN
+    official_source: "https://github.com/PacificBiosciences/pbsv"
+
+  cutesv:
+    target_version: "2.1.4"
+    version_constraint: "==2.1.4"
+    installation_source: "Bioconda package cutesv"
+    execution_backend: native-conda
+    executable_or_container: cuteSV
+    wrapper_module: hifivar.cutesv
+    version_command: [cuteSV, --version]
+    wrapper_compatibility_assumption: >-
+      The Phase 4 BAM-only positional argv contract and HiFi tuning target
+      cuteSV 2.1.4; genotype generation is explicitly enabled by default.
+    config_section: sv.cutesv
+    snakemake_rule: read_based_sv
+    environment_spec: workflow/envs/cutesv.yaml
+    mock_verification_status: PASS
+    official_cli_verification_status: DOCUMENTATION_REVIEWED_LOCAL_HELP_PENDING
+    linux_real_verification_status: NOT_RUN
+    official_source: "https://github.com/tjiangHIT/cuteSV"
