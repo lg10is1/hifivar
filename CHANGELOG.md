@@ -2,6 +2,14 @@
 
 All notable changes to HiFiVar will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- Derive per-sample Jasmine evidence membership from the validated `SUPP_VEC`
+  input-order contract instead of guessing caller identity from heterogeneous
+  native `IDLIST` formats. This corrects caller/source counts and paths in the
+  derived SV evidence TSV while leaving caller and harmonized VCFs unchanged.
+
 ## [0.1.0rc2] - 2026-08-27
 
 This release candidate contains deployment/runtime hardening and output

@@ -40,6 +40,14 @@ only as an older-version fallback. These changes address P9-JASMINE-001/002/003
 and P9-TRUVARI-001. Linux delta execution is still required before changing
 the independent audit result to PASS.
 
+Post-RC2 real-data validation identified that native IDs from Sawfish,
+Sniffles2, pbsv, and cuteSV do not share a caller-prefix convention. Evidence
+membership therefore uses Jasmine `SUPP_VEC` as the authoritative mapping to
+the ordered runnable-source list whenever that field is present. `IDLIST`
+remains unchanged as source-record provenance and is never used to override a
+valid support vector. This corrects derived support counts without rewriting
+the harmonized VCF or any caller VCF.
+
 ## Public API
 
 - EvidenceRunStatus, EvidenceClass
@@ -75,6 +83,10 @@ Unknown configuration keys continue to fail schema validation.
 - Truvari output is concordance/comparison support only.
 - No benchmark confidence model, annotation, review UI, or Phase 10 behavior is included.
 - Full VCFs are processed with generators/streaming; pandas is not used.
+- Harmonization remains per sample. Phase 12 cohort SV tables preserve
+  source-native rows and do not invent cross-sample clustering; adding a
+  cross-sample SV clustering contract requires a separate scientific design and
+  benchmark, not an implicit extension of this phase.
 
 ## Verification status
 
@@ -91,9 +103,9 @@ The supported Linux/HPC deployment boundary is documented in
 
 ## Known limitations
 
-- Jasmine SUPP_VEC is the preferred deterministic source mapping when native
-  record IDs are not caller-prefixed; records without either mapping are marked
-  UNRESOLVED.
+- Jasmine SUPP_VEC is the authoritative deterministic source mapping when
+  present. Native IDLIST values remain provenance because caller ID formats are
+  heterogeneous; legacy records without either mapping are marked UNRESOLVED.
 - Biological clustering thresholds require later benchmark calibration.
 - PAV, Jasmine, and Truvari remediation passed independent Linux/HPC delta
   validation; HiPhase, hifiasm, SVIM-asm, and upstream-tool results remain

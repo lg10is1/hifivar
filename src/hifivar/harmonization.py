@@ -248,16 +248,31 @@ def write_evidence_table(request: SVHarmonizationRequest, merged_vcf: Path) -> P
                     raise OutputValidationError("Malformed harmonized SV record.")
                 info = _parse_info(fields[7])
                 identifiers = tuple(item for item in (info.get("IDLIST") or fields[2]).split(",") if item)
-                callers = tuple(dict.fromkeys(item.split(":", 1)[0] for item in identifiers if ":" in item and item.split(":", 1)[0] in source_by_caller))
                 support_vector = info.get("SUPP_VEC")
                 runnable = request.runnable_sources
-                if not callers and support_vector is not None:
+                if support_vector is not None:
                     if len(support_vector) != len(runnable) or any(
                         bit not in {"0", "1"} for bit in support_vector
                     ):
                         raise OutputValidationError("Jasmine SUPP_VEC does not match the input source list.")
                     callers = tuple(
                         source.caller for source, bit in zip(runnable, support_vector) if bit == "1"
+                    )
+                    if not callers:
+                        raise OutputValidationError("Jasmine SUPP_VEC does not identify a supporting source.")
+                else:
+                    # Legacy Jasmine output may lack SUPP_VEC.  In that case only,
+                    # retain the conservative caller-prefixed ID fallback.  Native
+                    # caller IDs are not otherwise a reliable membership contract.
+                    mapped_callers = tuple(
+                        item.split(":", 1)[0]
+                        for item in identifiers
+                        if ":" in item and item.split(":", 1)[0] in source_by_caller
+                    )
+                    callers = (
+                        tuple(dict.fromkeys(mapped_callers))
+                        if len(mapped_callers) == len(identifiers)
+                        else ()
                     )
                 read = tuple(name for name in callers if source_by_caller[name].source is SVEvidenceSource.READ)
                 assembly = tuple(name for name in callers if source_by_caller[name].source is SVEvidenceSource.ASSEMBLY)
