@@ -4,7 +4,7 @@ HiFiVar is a modular, reproducible workflow framework for PacBio HiFi
 whole-genome variant analysis. It orchestrates established bioinformatics
 tools; it does not replace their calling algorithms.
 
-The current release candidate is **0.1.0rc1**. It is intended for research use
+The current release candidate is **0.1.0rc2**. It is intended for research use
 on Linux/HPC and is not a clinical diagnostic system.
 
 ## What is included
@@ -28,7 +28,7 @@ The packaged Snakemake small/SV/TR branches consume an existing indexed
 BAM/CRAM. The Phase 2 Python API can plan and execute FASTQ alignment with
 pbmm2, but this release candidate does not yet expose one unified `hifivar run`
 command or a Snakemake alignment rule. Do not claim a one-command FASTQ-to-all-
-variants workflow for `0.1.0rc1`.
+variants workflow for `0.1.0rc2`.
 
 ## Requirements
 
@@ -50,7 +50,7 @@ dry-run layers, but not the formal external-tool production workflow.
 python3 -m venv hifivar-env
 source hifivar-env/bin/activate
 python -m pip install --upgrade pip
-python -m pip install './hifivar-0.1.0rc1-py3-none-any.whl[workflow]'
+python -m pip install './hifivar-0.1.0rc2-py3-none-any.whl[workflow]'
 ```
 
 ### Source checkout
@@ -58,7 +58,7 @@ python -m pip install './hifivar-0.1.0rc1-py3-none-any.whl[workflow]'
 ```bash
 git clone https://github.com/lg10is1/hifivar.git
 cd hifivar
-git checkout v0.1.0-rc1
+git checkout v0.1.0-rc2
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
@@ -90,7 +90,7 @@ hifivar doctor
 Expected candidate version:
 
 ```text
-hifivar 0.1.0rc1
+hifivar 0.1.0rc2
 ```
 
 ## Five-minute smoke test
@@ -128,6 +128,9 @@ with biological truth or pathogenicity.
 - [Installation methods](docs/installation.md)
 - [Conda, Docker and Apptainer](docs/containers.md)
 - [Linux/HPC execution](docs/linux_hpc.md)
+- [Multi-sample execution with Slurm](docs/slurm_multi_sample.md)
+- [中文：单样本 Bash 运行指南](docs/zh_CN/single_sample_bash.md)
+- [中文：多样本 Slurm 运行指南](docs/zh_CN/slurm_multi_sample.md)
 - [Configuration and inputs](docs/quickstart.md)
 - [Outputs](docs/outputs.md)
 - [Troubleshooting](docs/troubleshooting.md)

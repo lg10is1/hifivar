@@ -136,6 +136,10 @@ def test_native_command_is_deterministic_hifi_command(tmp_path: Path) -> None:
     assert f"--output_vcf={request.output_vcf.absolute()}" in command
     assert f"--output_gvcf={request.output_gvcf.absolute()}" in command
     assert "--num_shards=8" in command
+    assert request.temporary_directory == request.intermediate_directory / "tmp"
+    assert request.to_dict()["temporary_directory"] == str(
+        request.temporary_directory
+    )
 
 
 @pytest.mark.parametrize(
@@ -153,6 +157,19 @@ def test_container_runtime_isolated_from_caller_arguments(
     assert command[0] == launcher
     assert "/opt/deepvariant/bin/run_deepvariant" in command
     assert "--model_type=PACBIO" in command
+    assert "--env" in command
+    assert f"TMPDIR={request.temporary_directory.absolute()}" in command
+    if mode is DeepVariantExecutionMode.DOCKER:
+        assert any(
+            str(request.temporary_directory.absolute()) in argument
+            for argument in command
+            if argument.startswith("type=bind")
+        )
+    else:
+        assert (
+            f"{request.temporary_directory.absolute()}:"
+            f"{request.temporary_directory.absolute()}"
+        ) in command
     assert runtime.to_dict()["image"] == "deepvariant:test"
 
 
@@ -165,6 +182,7 @@ def test_container_command_precreates_all_writable_bind_sources(
         request.output_gvcf.parent,
         request.intermediate_directory,
         request.logging_directory,
+        request.temporary_directory,
     }
     assert all(not path.exists() for path in writable)
 
@@ -196,6 +214,7 @@ def test_container_dry_run_does_not_create_mount_sources(tmp_path: Path) -> None
     assert not request.output_vcf.parent.exists()
     assert not request.intermediate_directory.exists()
     assert not request.logging_directory.exists()
+    assert not request.temporary_directory.exists()
 
 
 def test_runtime_config_and_invalid_combinations() -> None:
@@ -246,6 +265,24 @@ def test_real_run_records_version_runtime_and_outputs(tmp_path: Path) -> None:
     assert request.output_gvcf.is_file()
     assert request.output_vcf_index.is_file()
     assert request.output_gvcf_index.is_file()
+    assert request.temporary_directory.is_dir()
+    assert runner.commands[-1][1]["env"] == {
+        "TMPDIR": str(request.temporary_directory.absolute())
+    }
+
+
+def test_native_dry_run_records_sample_specific_tmpdir_without_creating_it(
+    tmp_path: Path,
+) -> None:
+    runner = FakeCommandRunner()
+    request = make_request(tmp_path)
+
+    DeepVariantWrapper(runner=runner).run(request, dry_run=True)  # type: ignore[arg-type]
+
+    assert runner.commands[-1][1]["env"] == {
+        "TMPDIR": str(request.temporary_directory.absolute())
+    }
+    assert not request.temporary_directory.exists()
 
 
 def test_command_failure_and_missing_outputs_are_clear(tmp_path: Path) -> None:

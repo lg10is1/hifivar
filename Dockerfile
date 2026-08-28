@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 FROM python:3.12-slim-bookworm
 
-ARG HIFIVAR_VERSION=0.1.0rc1
+ARG HIFIVAR_VERSION=0.1.0rc2
 LABEL org.opencontainers.image.title="HiFiVar" \
       org.opencontainers.image.version="${HIFIVAR_VERSION}" \
       org.opencontainers.image.licenses="Apache-2.0" \

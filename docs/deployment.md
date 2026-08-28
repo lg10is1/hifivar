@@ -8,7 +8,7 @@ databases and credentials stay outside the Python package.
 |---|---|---|---|
 | PAV | 2.4.6, Apptainer | REAL PASS | `apptainer exec --bind <root> <image> snakemake`; host copy of the same image's `/opt/pav` workflow is required and refreshed on image upgrade. |
 | IGV | 2.19.6 under Xvfb | REAL PASS | IGV batch mode through `IgvWrapper`; headless display is site-provisioned. IGV may attempt optional default-track network access. |
-| GLnexus | 1.4.1 + bcftools 1.21 | REAL PASS | Pinned `workflow/envs/glnexus.yaml`; GLnexus/bcftools wrapper and Snakemake cohort track validated. |
+| GLnexus | 1.4.1 + bcftools 1.21 | REAL PASS | Pinned `workflow/envs/glnexus.yaml`; GLnexus/bcftools wrapper and Snakemake cohort track validated. `memory_gb` is an explicit run-specific scheduler/CLI cap; a three-sample WGS run peaked near 153 GB and used 192–200 GB planning, which is evidence for that workload rather than a universal default. |
 | ANNOVAR | 2020Jun08 + explicit hg38 database | REAL PASS | Native Perl adapter; database root/version provisioned outside HiFiVar; no automatic download. |
 | VEP | offline/cache boundary | ENVIRONMENT BLOCKED | Wrapper/mock audited, but no real executable/cache was available. Do not claim real support until revalidated. |
 | hap.py | compatibility target 0.3.15 | REAL PASS | Native/managed Linux environment; explicit truth VCF, confident BED, reference and resource versions. Empty `--version` output requires an explicit trustworthy configured version. |
@@ -19,7 +19,7 @@ databases and credentials stay outside the Python package.
 
 | Distribution | Identity | Status |
 |---|---|---|
-| Python wheel/sdist | `0.1.0rc1` | Windows clean-install PASS; Linux release-candidate wheel PASS before this distribution delta. |
+| Python wheel/sdist | `0.1.0rc2` | Windows clean-install PASS; Linux release-candidate wheel PASS before this distribution delta. |
 | Conda source environment/recipe | repository `environment.yml` / `conda-recipe` | `LINUX_REAL_VERIFICATION: NOT_RUN` |
 | Docker core | repository `Dockerfile`, `python:3.12-slim-bookworm` base | `LINUX_REAL_VERIFICATION: NOT_RUN` |
 | Apptainer core | repository `containers/hifivar.def`, `python:3.12-slim-bookworm` base | `LINUX_REAL_VERIFICATION: NOT_RUN` |

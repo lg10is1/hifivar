@@ -73,6 +73,21 @@ def test_command_is_deterministic_shell_free_and_preserves_input_order(tmp_path:
     assert "|" not in command.args
 
 
+def test_configured_memory_limit_is_forwarded_without_hidden_default(tmp_path: Path) -> None:
+    base = make_request(tmp_path)
+    request = GLnexusRequest(
+        base.cohort,
+        base.inputs,
+        base.work_directory,
+        base.output_bcf,
+        base.output_vcf,
+        resources=GLnexusResources(8, 192),
+    )
+    command = GLnexusWrapper().plan_commands(request)[0]
+    option = command.args.index("--mem-gbytes")
+    assert command.args[option : option + 2] == ("--mem-gbytes", "192")
+
+
 def test_dry_run_creates_no_outputs(tmp_path: Path) -> None:
     request = make_request(tmp_path)
     runner = FakeRunner(request)
@@ -126,18 +141,28 @@ def test_missing_executable_is_clear(tmp_path: Path) -> None:
         GLnexusWrapper(runner=MissingRunner(request)).run(request)
 
 
-def test_wrapper_rejects_output_sample_mismatch(tmp_path: Path) -> None:
+def test_wrapper_accepts_output_reordering_and_records_provenance(tmp_path: Path) -> None:
     request = make_request(tmp_path)
     runner = FakeRunner(request)
     runner.request = request
     original_run = runner.run
+
     def reversed_output(command, **kwargs):
         result = original_run(command, **kwargs)
         args = tuple(str(item) for item in command)
         if len(args) > 1 and args[1] == "view":
             with gzip.open(request.output_vcf, "wt", encoding="utf-8") as handle:
-                handle.write("##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\tS2\n")
+                handle.write(
+                    "##fileformat=VCFv4.2\n"
+                    "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\tS2\n"
+                    "chr1\t10\tv1\tA\tC\t.\tPASS\t.\tGT\t0/0\t0/1\n"
+                )
         return result
+
     runner.run = reversed_output
-    with pytest.raises(OutputValidationError, match="order/set mismatch"):
-        GLnexusWrapper(runner=runner).run(request)
+    result = GLnexusWrapper(runner=runner).run(request)
+    assert result.qc["declared_sample_order"] == ["S2", "S1"]
+    assert result.qc["output_sample_order"] == ["S1", "S2"]
+    assert result.qc["sample_set_match"] is True
+    assert result.qc["sample_order_match"] is False
+    assert result.qc["per_sample_non_ref_count"] == {"S2": 1, "S1": 0}

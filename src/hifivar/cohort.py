@@ -215,9 +215,26 @@ def scan_multisample_vcf(path: Path, expected_samples: tuple[str, ...]) -> dict[
                 continue
             if line.startswith("#CHROM\t"):
                 header_samples = tuple(line.rstrip("\r\n").split("\t")[9:])
-                if header_samples != expected_samples:
+                if any(not sample for sample in header_samples):
                     raise OutputValidationError(
-                        f"Cohort VCF sample order/set mismatch: expected {expected_samples!r}, observed {header_samples!r}."
+                        f"Cohort VCF contains an empty sample name in '{path}'."
+                    )
+                duplicate_samples = sorted(
+                    sample for sample, count in Counter(header_samples).items() if count > 1
+                )
+                if duplicate_samples:
+                    raise OutputValidationError(
+                        f"Cohort VCF contains duplicate sample IDs {duplicate_samples!r} in '{path}'."
+                    )
+                expected_set = set(expected_samples)
+                observed_set = set(header_samples)
+                missing_samples = sorted(expected_set - observed_set)
+                extra_samples = sorted(observed_set - expected_set)
+                if missing_samples or extra_samples:
+                    raise OutputValidationError(
+                        "Cohort VCF sample set mismatch: "
+                        f"missing={missing_samples!r}, extra={extra_samples!r}; "
+                        f"declared order={expected_samples!r}, output order={header_samples!r}."
                     )
                 continue
             if line.startswith("#") or not line.strip():
@@ -225,7 +242,7 @@ def scan_multisample_vcf(path: Path, expected_samples: tuple[str, ...]) -> dict[
             if header_samples is None:
                 raise OutputValidationError(f"VCF records precede #CHROM header in '{path}'.")
             fields = line.rstrip("\r\n").split("\t")
-            if len(fields) != 9 + len(expected_samples):
+            if len(fields) != 9 + len(header_samples):
                 raise OutputValidationError(f"Malformed cohort VCF record in '{path}'.")
             variant_count += 1
             multiallelic_count += int("," in fields[4])
@@ -235,7 +252,7 @@ def scan_multisample_vcf(path: Path, expected_samples: tuple[str, ...]) -> dict[
                 gt_index = format_keys.index("GT")
             except ValueError:
                 gt_index = -1
-            for sample, cell in zip(expected_samples, fields[9:]):
+            for sample, cell in zip(header_samples, fields[9:]):
                 values = cell.split(":")
                 gt = values[gt_index] if gt_index >= 0 and gt_index < len(values) else "."
                 alleles = gt.replace("|", "/").split("/")
@@ -250,6 +267,10 @@ def scan_multisample_vcf(path: Path, expected_samples: tuple[str, ...]) -> dict[
     denominator = max(variant_count, 1)
     return {
         "sample_count": len(expected_samples),
+        "declared_sample_order": list(expected_samples),
+        "output_sample_order": list(header_samples),
+        "sample_set_match": True,
+        "sample_order_match": header_samples == expected_samples,
         "variant_count": variant_count,
         "multiallelic_count": multiallelic_count,
         "filter_distribution": dict(sorted(filter_counts.items())),

@@ -2,7 +2,11 @@
 
 All notable changes to HiFiVar will be documented in this file.
 
-## Unreleased
+## [0.1.0rc2] - 2026-08-27
+
+This release candidate contains deployment/runtime hardening and output
+validation fixes only. It adds no caller and changes no scientific decision
+rule.
 
 ### Added
 
@@ -19,7 +23,17 @@ All notable changes to HiFiVar will be documented in this file.
 
 - Bound the optional workflow dependency to tested Snakemake major versions 8
   and 9.
-- Document the `0.1.0rc1` execution boundary: packaged small/SV/TR workflow
+- Isolate each DeepVariant sample in its own data-disk temporary directory and
+  pass the same `TMPDIR` through native, Docker, and Apptainer execution.
+- Serialize DeepVariant samples by default through the global
+  `deepvariant_slots` resource; sites may raise `small.max_concurrent_samples`
+  only after validating storage, file-descriptor, CPU, and memory limits.
+- Require an explicit GLnexus `cohort.small_variants.memory_gb` when that track
+  is enabled, and forward the configured cap to both Snakemake and GLnexus.
+- Validate GLnexus cohort identity by exact sample-set equality while retaining
+  both declared and physical VCF sample order in provenance. Sample-level QC is
+  keyed by header sample name, and the raw cohort VCF is never reordered.
+- Document the `0.1.0rc2` execution boundary: packaged small/SV/TR workflow
   branches consume indexed BAM/CRAM, while unified FASTQ-to-calling execution
   is not yet exposed through the CLI/DAG.
 

@@ -790,7 +790,7 @@ The Docker and Apptainer core images are not monolithic WGS environments and
 must not launch nested PAV/DeepVariant containers. Linux/HPC should normally run
 the core from Conda/venv and mount or invoke tool-specific deployments.
 
-The `0.1.0rc1` packaged DAG consumes existing indexed BAM/CRAM for small/SV/TR
+The `0.1.0rc2` packaged DAG consumes existing indexed BAM/CRAM for small/SV/TR
 tracks. FASTQ-to-pbmm2 execution remains available through the Phase 2 Python
 integration but is not a packaged alignment rule or unified CLI command. Public
 documentation must preserve this distinction until that integration exists.

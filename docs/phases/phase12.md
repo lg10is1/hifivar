@@ -52,11 +52,24 @@ and `bcftools index --tbi` commands.
 The production target is GLnexus 1.4.1, bcftools 1.21, and `DeepVariantWGS`,
 pinned in `workflow/envs/glnexus.yaml`. Input gVCFs follow declared cohort
 order. Each must be indexed, contain exactly its declared sample, and use exact
-reference contig names. Final VCF sample order/set must match the cohort.
+reference contig names. Final VCF identity is validated by exact sample-set
+equality: missing, extra, duplicate, and empty sample IDs are rejected. GLnexus
+may emit physical VCF columns in a deterministic order different from the
+manifest order. HiFiVar therefore retains both `declared_sample_order` and
+`output_sample_order`, records `sample_set_match` and `sample_order_match`, and
+does not rewrite the raw cohort VCF merely to make those orders agree.
+
+An enabled small-variant cohort must set a positive
+`cohort.small_variants.memory_gb`; the same value becomes the Snakemake memory
+request and GLnexus `--mem-gbytes` cap. No universal default is inferred. A
+three-sample WGS deployment peaked near 153 GB and used 192–200 GB planning,
+which is evidence for that workload only.
 
 Streaming QC reports sample/variant/multiallelic counts, FILTER distribution,
 per-sample non-reference counts, missing rate, and call rate. It does not load
 the complete VCF or perform GWAS, PCA, relatedness, ancestry, or clinical work.
+All per-sample metrics are mapped by VCF header sample name rather than by the
+manifest's column position.
 
 ## SV cohort boundary
 
@@ -105,7 +118,11 @@ snakemake --snakefile workflow/Snakefile --configfile effective.phase12.yaml \
 bcftools query -l results/cohort/COHORT/small/COHORT.small.vcf.gz
 ```
 
-`GLNEXUS_LINUX_REAL_VERIFICATION: NOT_RUN`
+`GLNEXUS_LINUX_REAL_TOOL_EXECUTION: PASS`
+
+`THREE_SAMPLE_HIFIVAR_DAG_E2E: NOT_PROVEN`; the completed three-sample WGS
+execution used direct external-tool commands, so the remediated packaged DAG
+still requires the documented tiny Linux delta revalidation.
 
 Set `HIFIVAR_GIT_COMMIT` to the validated checkout SHA before a production
 Snakemake run; the cohort manifest records it explicitly (or `null` when the
@@ -122,5 +139,6 @@ expensive checksum of every large input.
 - Catalog-consistent TR locus/sample matrix: complete.
 - Independent optional Snakemake tracks: complete.
 - Windows mock/unit/integration/Snakemake regression: complete.
-- Linux/HPC real GLnexus execution: pending, not claimed.
+- Linux/HPC GLnexus real-tool execution: complete; remediated packaged-DAG tiny
+  delta revalidation remains required.
 - Phase 13: not started.

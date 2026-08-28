@@ -49,6 +49,21 @@ SMALL_ROOT = COHORT_ROOT / str(COHORT_ID) / "small"
 SV_ROOT = COHORT_ROOT / str(COHORT_ID) / "sv"
 TR_ROOT = COHORT_ROOT / str(COHORT_ID) / "tr"
 
+
+def _cohort_small_memory_gb():
+    if not COHORT_TRACKS.get(CohortTrack.SMALL_VARIANTS):
+        return 1
+    value = COHORT_CONFIG.get("small_variants", {}).get("memory_gb")
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise WorkflowError(
+            "Enabled cohort small-variant calling requires an explicit positive "
+            "cohort.small_variants.memory_gb."
+        )
+    return value
+
+
+COHORT_SMALL_MEMORY_GB = _cohort_small_memory_gb()
+
 if COHORT_TRACKS.get(CohortTrack.SMALL_VARIANTS):
     SMALL_RESULTS = [
         (SMALL_ROOT / f"{COHORT_ID}.small.bcf").as_posix(),
@@ -101,7 +116,7 @@ rule cohort_small_variants:
     threads:
         int(COHORT_CONFIG.get("small_variants", {}).get("threads", 8))
     resources:
-        mem_mb=int(COHORT_CONFIG.get("small_variants", {}).get("memory_gb", 32)) * 1024,
+        mem_mb=COHORT_SMALL_MEMORY_GB * 1024,
         runtime_min=int(COHORT_CONFIG.get("small_variants", {}).get("runtime_minutes", 1440))
     conda:
         "../envs/glnexus.yaml"

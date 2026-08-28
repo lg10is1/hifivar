@@ -424,6 +424,7 @@ def test_config_repr_does_not_dump_configuration_values() -> None:
         ),
         ({"model_type": "WGS"}, "model_type"),
         ({"threads": 0}, "threads"),
+        ({"max_concurrent_samples": 0}, "max_concurrent_samples"),
         ({"overwrite": "yes"}, "overwrite"),
     ),
 )
@@ -445,6 +446,7 @@ def test_small_variant_container_config_is_valid() -> None:
                 "deepvariant_image": "google/deepvariant:1.10.0",
                 "model_type": "PACBIO",
                 "threads": 16,
+                "max_concurrent_samples": 1,
                 "memory_mb": 64000,
                 "runtime_minutes": 2880,
                 "overwrite": False,

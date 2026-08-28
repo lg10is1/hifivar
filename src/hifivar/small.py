@@ -62,6 +62,7 @@ class DeepVariantRequest:
     overwrite: bool = False
     intermediate_directory: Path | None = None
     logging_directory: Path | None = None
+    temporary_directory: Path | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.artifact, AlignmentArtifact):
@@ -113,6 +114,7 @@ class DeepVariantRequest:
         logging = self.logging_directory or (
             output_vcf.parent / "logs" / self.sample_id
         )
+        temporary = self.temporary_directory or (Path(intermediate) / "tmp")
         object.__setattr__(
             self,
             "intermediate_directory",
@@ -122,6 +124,11 @@ class DeepVariantRequest:
             self,
             "logging_directory",
             _coerce_path(logging, "DeepVariant logging directory"),
+        )
+        object.__setattr__(
+            self,
+            "temporary_directory",
+            _coerce_path(temporary, "DeepVariant temporary directory"),
         )
 
     @property
@@ -177,6 +184,7 @@ class DeepVariantRequest:
             "output_gvcf_index": str(self.output_gvcf_index),
             "intermediate_directory": str(self.intermediate_directory),
             "logging_directory": str(self.logging_directory),
+            "temporary_directory": str(self.temporary_directory),
             "resources": self.resources.to_dict(),
             "overwrite": self.overwrite,
         }

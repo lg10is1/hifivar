@@ -42,6 +42,9 @@ small:
   deepvariant_image: null
   model_type: PACBIO
   threads: 16
+  # Default global capacity for the deepvariant_slots Snakemake resource.
+  # Increase only after validating per-sample temporary storage and node limits.
+  max_concurrent_samples: 1
   memory_mb: 64000
   runtime_minutes: 2880
   overwrite: false
@@ -215,7 +218,9 @@ cohort:
     bcftools_executable: bcftools
     preset: DeepVariantWGS
     threads: 8
-    memory_gb: 32
+    # Required explicitly when this track is enabled. Cohort memory scales with
+    # the number, coverage, and record density of the input gVCFs.
+    memory_gb: null
     runtime_minutes: 1440
   sv:
     enabled: false

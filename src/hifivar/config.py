@@ -47,6 +47,7 @@ _ALLOWED_SCHEMA = {
             "deepvariant_image",
             "model_type",
             "threads",
+            "max_concurrent_samples",
             "memory_mb",
             "runtime_minutes",
             "overwrite",
@@ -501,7 +502,12 @@ def validate_config(
                 _DEEPVARIANT_MODEL_TYPES,
                 case_sensitive=False,
             )
-        for key in ("threads", "memory_mb", "runtime_minutes"):
+        for key in (
+            "threads",
+            "max_concurrent_samples",
+            "memory_mb",
+            "runtime_minutes",
+        ):
             if key in small:
                 _validate_positive_integer(small[key], f"small.{key}")
         if "overwrite" in small and not isinstance(small["overwrite"], bool):
@@ -775,8 +781,17 @@ def validate_config(
             if "enabled" in track and not isinstance(track["enabled"], bool):
                 raise ConfigurationError(f"cohort.{track_name}.enabled must be a boolean.")
             for key in ("threads", "memory_mb", "memory_gb", "runtime_minutes"):
-                if key in track:
+                if key in track and track[key] is not None:
                     _validate_positive_integer(track[key], f"cohort.{track_name}.{key}")
+            if (
+                track_name == "small_variants"
+                and track.get("enabled")
+                and track.get("memory_gb") is None
+            ):
+                raise ConfigurationError(
+                    "cohort.small_variants.enabled requires an explicit positive "
+                    "cohort.small_variants.memory_gb sized for the input gVCFs."
+                )
             for key in ("glnexus_executable", "bcftools_executable", "preset"):
                 if key in track and (not isinstance(track[key], str) or not track[key].strip()):
                     raise ConfigurationError(f"cohort.{track_name}.{key} must be a non-empty string.")

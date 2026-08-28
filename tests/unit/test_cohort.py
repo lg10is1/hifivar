@@ -83,13 +83,58 @@ def test_streaming_qc_distinguishes_missing_homref_and_nonref(tmp_path: Path) ->
     assert qc["per_sample_non_ref_count"] == {"S2": 1, "S1": 1}
     assert qc["per_sample_missing_rate"]["S2"] == 0.5
     assert qc["per_sample_call_rate"]["S1"] == 1.0
+    assert qc["declared_sample_order"] == ["S2", "S1"]
+    assert qc["output_sample_order"] == ["S2", "S1"]
+    assert qc["sample_set_match"] is True
+    assert qc["sample_order_match"] is True
 
 
-def test_vcf_sample_set_must_match_exactly(tmp_path: Path) -> None:
+def test_vcf_sample_order_difference_preserves_identity_and_raw_vcf(tmp_path: Path) -> None:
+    path = tmp_path / "reordered.vcf"
+    path.write_text(
+        "##fileformat=VCFv4.2\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\tS2\n"
+        "chr1\t10\tv1\tA\tC\t.\tPASS\t.\tGT\t0/1\t0/0\n"
+        "chr1\t20\tv2\tA\tC\t.\tPASS\t.\tGT\t./.\t1/1\n",
+        encoding="utf-8",
+    )
+    original = path.read_bytes()
+
+    qc = scan_multisample_vcf(path, ("S2", "S1"))
+
+    assert qc["declared_sample_order"] == ["S2", "S1"]
+    assert qc["output_sample_order"] == ["S1", "S2"]
+    assert qc["sample_set_match"] is True
+    assert qc["sample_order_match"] is False
+    assert qc["per_sample_non_ref_count"] == {"S2": 1, "S1": 1}
+    assert qc["per_sample_missing_rate"] == {"S2": 0.0, "S1": 0.5}
+    assert path.read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    ("header_samples", "message"),
+    [
+        (("S1",), "sample set mismatch"),
+        (("S1", "S2", "S3"), "sample set mismatch"),
+        (("S1", "S1"), "duplicate sample IDs"),
+        (("S1", ""), "empty sample name"),
+    ],
+)
+def test_vcf_sample_header_rejects_invalid_identity(
+    tmp_path: Path,
+    header_samples: tuple[str, ...],
+    message: str,
+) -> None:
     path = tmp_path / "bad.vcf"
-    path.write_text("##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\tS2\n", encoding="utf-8")
-    with pytest.raises(OutputValidationError, match="order/set mismatch"):
-        scan_multisample_vcf(path, ("S2", "S1"))
+    path.write_text(
+        "##fileformat=VCFv4.2\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t"
+        + "\t".join(header_samples)
+        + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(OutputValidationError, match=message):
+        scan_multisample_vcf(path, ("S1", "S2"))
 
 
 def test_manifest_json_yaml_and_overwrite_protection(tmp_path: Path) -> None:

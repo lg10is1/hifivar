@@ -18,7 +18,7 @@ request = GLnexusRequest(
     Path(str(config["paths"]["workdir"] or "work")) / "cohort" / cohort.cohort_id / "glnexus.DB",
     Path(str(snakemake.output.bcf)), Path(str(snakemake.output.vcf)),  # type: ignore[name-defined]
     str(track.get("preset", "DeepVariantWGS")),
-    GLnexusResources(int(track.get("threads", 8)), int(track.get("memory_gb", 32))),
+    GLnexusResources(int(track.get("threads", 8)), int(track["memory_gb"])),
     bool(section.get("overwrite", False)),
 )
 result = GLnexusWrapper(executable=str(track.get("glnexus_executable", "glnexus_cli")), bcftools_executable=str(track.get("bcftools_executable", "bcftools"))).run(request, log_path=Path(str(snakemake.log[0])))  # type: ignore[name-defined]

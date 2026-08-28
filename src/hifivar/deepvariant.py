@@ -127,11 +127,13 @@ class DeepVariantRuntime:
                 if not writable:
                     mount += ",readonly"
                 prefix.extend(("--mount", mount))
+            prefix.extend(("--env", f"TMPDIR={request.temporary_directory.absolute()}"))
             return prefix + [str(self.image), _CONTAINER_EXECUTABLE]
         prefix = ["apptainer", "exec", "--cleanenv"]
         for path, writable in mounts:
             binding = f"{path}:{path}" + ("" if writable else ":ro")
             prefix.extend(("--bind", binding))
+        prefix.extend(("--env", f"TMPDIR={request.temporary_directory.absolute()}"))
         return prefix + [str(self.image), _CONTAINER_EXECUTABLE]
 
     def to_dict(self) -> dict[str, object]:
@@ -217,11 +219,17 @@ class DeepVariantWrapper:
         stderr_path: str | Path | None = None,
     ) -> SmallVariantResult:
         self._validate_inputs(request)
+        runner_environment = (
+            {"TMPDIR": str(request.temporary_directory.absolute())}
+            if self.runtime.mode is DeepVariantExecutionMode.NATIVE
+            else None
+        )
         if dry_run:
             command = self.plan_command(request, redact_values=redact_values)
             self.runner.run(
                 command.args,
                 dry_run=True,
+                env=runner_environment,
                 timeout=timeout,
                 redact_values=redact_values,
                 stderr_path=stderr_path,
@@ -243,6 +251,7 @@ class DeepVariantWrapper:
         )
         result = self.runner.run(
             command.args,
+            env=runner_environment,
             timeout=timeout,
             redact_values=redact_values,
             stderr_path=stderr_path,
@@ -304,6 +313,7 @@ class DeepVariantWrapper:
             request.output_gvcf.parent.mkdir(parents=True, exist_ok=True)
             request.intermediate_directory.mkdir(parents=True, exist_ok=True)
             request.logging_directory.mkdir(parents=True, exist_ok=True)
+            request.temporary_directory.mkdir(parents=True, exist_ok=True)
         except OutputValidationError:
             raise
         except OSError as error:
@@ -328,6 +338,7 @@ def _container_mounts(
         request.output_gvcf.absolute().parent,
         request.intermediate_directory.absolute(),
         request.logging_directory.absolute(),
+        request.temporary_directory.absolute(),
     }
     for path in readonly_paths:
         access[str(path)] = (path, False)

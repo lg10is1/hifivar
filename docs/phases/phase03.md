@@ -45,6 +45,15 @@ construction. When callers provide the workflow stderr log path, CommandRunner
 also persists stdout to a sibling `*.stdout.log`; this retains DeepVariant
 make_examples, call_variants, and postprocess diagnostics.
 
+Post-release WGS hardening assigns every request a sample-specific temporary
+directory at `<runtime.tmpdir-or-workdir>/deepvariant/<sample>/tmp`. Native,
+Docker, and Apptainer execution receive the same `TMPDIR`; container modes also
+bind it writable. The workflow registers a global `deepvariant_slots` capacity
+from `small.max_concurrent_samples`, which defaults to one after concurrent
+model loading and shared system `/tmp` were identified as unsafe deployment
+conditions. Raising the value is a site-validated resource decision, not a
+calling-method change.
+
 If external execution succeeds but output validation fails, any existing VCF,
 gVCF, and tabix indexes are atomically moved under
 `small/quarantine/{sample}.{UTC}/` with `VALIDATION_ERROR.txt`. The declared

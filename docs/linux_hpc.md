@@ -47,6 +47,12 @@ DeepVariant sharded execution should have a file-descriptor limit of at least
 4096; 65536 is recommended where site policy permits. HiFiVar reports a clear
 preflight error for insufficient limits.
 
+DeepVariant temporary storage is isolated per sample at
+`<runtime.tmpdir-or-workdir>/deepvariant/<sample>/tmp`. Select a shared or local
+data-disk root with enough capacity; do not point `runtime.tmpdir` at a small
+system `/tmp`. Native execution receives this path as `TMPDIR`; Docker and
+Apptainer also receive an explicit writable bind and container environment.
+
 ## Workflow discovery after wheel/Conda installation
 
 ```bash
@@ -81,6 +87,12 @@ snakemake \
 
 The profile must map `threads`, `mem_mb` and `runtime_min` without weakening
 rule-level resource requests.
+
+The workflow registers one global `deepvariant_slots` unit by default, so only
+one DeepVariant sample runs at a time. `small.max_concurrent_samples` controls
+that capacity. Increase it only after a tiny DAG run confirms independent
+sample temporary directories and the site can sustain the multiplied resource
+load.
 
 ## External tools
 

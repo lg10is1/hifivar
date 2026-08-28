@@ -58,3 +58,88 @@ def test_phase12_workflow_bridges_do_not_call_subprocess() -> None:
     for name in ("run_cohort_small.py", "run_cohort_sv.py", "run_cohort_tr.py"):
         text = (ROOT / "workflow" / "scripts" / name).read_text(encoding="utf-8")
         assert "subprocess" not in text and "os.system" not in text
+
+
+def test_small_cohort_requires_and_exposes_explicit_memory(tmp_path: Path) -> None:
+    reference = tmp_path / "reference.fa"
+    reference.write_text(">chr1\nACGT\n", encoding="utf-8")
+    Path(f"{reference}.fai").write_text("chr1\t4\t6\t4\t5\n", encoding="utf-8")
+    samples = tmp_path / "samples.tsv"
+    sample_rows = ["sample_id\tinput\tinput_type"]
+    manifest_rows = [
+        "sample\ttrack\tstate\tsource_path\tindex_path\tsource_tool\tsource_version\treference_build\tcatalog_id"
+    ]
+    for sample in ("S1", "S2"):
+        bam = tmp_path / f"{sample}.bam"
+        bam.write_bytes(b"BAM")
+        gvcf = tmp_path / f"{sample}.g.vcf.gz"
+        index = Path(f"{gvcf}.tbi")
+        gvcf.write_bytes(b"gVCF")
+        index.write_bytes(b"index")
+        sample_rows.append(f"{sample}\t{bam}\tbam")
+        manifest_rows.append(
+            f"{sample}\tsmall_variants\tCALLED\t{gvcf}\t{index}\tdeepvariant\t1.10.0\tGRCh38\t"
+        )
+    samples.write_text("\n".join(sample_rows) + "\n", encoding="utf-8")
+    manifest = tmp_path / "cohort.tsv"
+    manifest.write_text("\n".join(manifest_rows) + "\n", encoding="utf-8")
+    user = tmp_path / "phase12-small.yaml"
+    user.write_text(
+        yaml.safe_dump(
+            {
+                "reference": {"fasta": str(reference), "build": "GRCh38"},
+                "samples": {"sheet": str(samples)},
+                "paths": {
+                    "workdir": str(tmp_path / "work"),
+                    "outdir": str(tmp_path / "results"),
+                },
+                "cohort": {
+                    "enabled": True,
+                    "cohort_id": "C1",
+                    "input_manifest": str(manifest),
+                    "small_variants": {"enabled": True, "memory_gb": 192},
+                },
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    effective = tmp_path / "effective.yaml"
+    write_effective_config(load_config(DEFAULT, user_config=user), effective)
+    environment = os.environ.copy()
+    environment["XDG_CACHE_HOME"] = str(tmp_path / ".cache")
+    if sys.platform == "win32":
+        environment["LOCALAPPDATA"] = str(tmp_path / ".local")
+        environment["APPDATA"] = str(tmp_path / ".app")
+    result = subprocess.run(
+        [
+            str(snakemake()),
+            "--snakefile",
+            str(SNAKEFILE),
+            "--configfile",
+            str(effective),
+            "--cores",
+            "1",
+            "--dry-run",
+            "--printshellcmds",
+            "--shared-fs-usage",
+            "input-output",
+            "persistence",
+            "software-deployment",
+            "software-deployment-cache",
+            "sources",
+            "storage-local-copies",
+        ],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+        timeout=60,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, output
+    assert "cohort_small_variants" in output
+    assert "mem_mb=196608" in output

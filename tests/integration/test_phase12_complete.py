@@ -46,7 +46,7 @@ def test_phase12_three_tracks_and_manifest_remain_independent(tmp_path: Path) ->
         write_vcf(path, sample, "")
         small_inputs.append(CohortSampleInput(sample, SampleCallState.NO_CALLS, path, Path(f"{path}.tbi"), "deepvariant", "1.10.0", "GRCh38"))
     request = GLnexusRequest(cohort, tuple(small_inputs), tmp_path / "glnexus.DB", tmp_path / "small" / "family.small.bcf", tmp_path / "small" / "family.small.vcf.gz", resources=GLnexusResources(2, 4))
-    small = GLnexusWrapper(runner=Runner(samples)).run(request).as_track_result()
+    small = GLnexusWrapper(runner=Runner(tuple(reversed(samples)))).run(request).as_track_result()
 
     sv_path = tmp_path / "S1.sv.vcf.gz"
     write_vcf(sv_path, "S1", "chr1\t20\tsv1\tN\t<DEL>\t.\tPASS\tSVTYPE=DEL;END=30\tGT\t0/1\n")
@@ -68,4 +68,9 @@ def test_phase12_three_tracks_and_manifest_remain_independent(tmp_path: Path) ->
     assert [track["track"] for track in payload["tracks"]] == ["small_variants", "sv", "tr"]
     assert payload["tracks"][1]["sample_states"][1]["state"] == "FAILED"
     assert payload["tracks"][2]["sample_states"][1]["state"] == "NOT_RUN"
+    assert payload["tracks"][0]["metrics"]["declared_sample_order"] == ["S1", "S2"]
+    assert payload["tracks"][0]["metrics"]["output_sample_order"] == ["S2", "S1"]
+    assert payload["tracks"][0]["metrics"]["sample_set_match"] is True
+    assert payload["tracks"][0]["metrics"]["sample_order_match"] is False
+    assert payload["tracks"][0]["metrics"]["per_sample_non_ref_count"] == {"S1": 0, "S2": 1}
     assert request.output_vcf.exists() and sv_path.exists() and tr_path.exists()

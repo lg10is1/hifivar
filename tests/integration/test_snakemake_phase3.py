@@ -100,6 +100,7 @@ def test_deepvariant_rule_dry_run_has_deterministic_handoff(tmp_path: Path) -> N
     assert "S1.small.vcf.gz" in output
     assert "S1.g.vcf.gz" in output
     assert "threads: 7" in output
+    assert "deepvariant_slots=1" in output
     assert not (tmp_path / "results" / "small" / "S1.small.vcf.gz").exists()
 
 
@@ -109,5 +110,7 @@ def test_phase3_rule_and_bridge_keep_command_ownership_in_wrapper() -> None:
     assert "/opt/deepvariant" not in rule_text
     assert "--model_type" not in rule_text
     assert "DeepVariantWrapper" in bridge_text
+    assert "temporary_directory" in bridge_text
+    assert "deepvariant_slots=1" in rule_text
     assert "subprocess" not in bridge_text
     assert "os.system" not in bridge_text

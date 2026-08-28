@@ -48,7 +48,7 @@ explicitly approved it.
 
 ## FASTQ does not enter the small-variant DAG
 
-This is the `0.1.0rc1` boundary: small/SV/TR Snakemake rules consume indexed
+This is the `0.1.0rc2` boundary: small/SV/TR Snakemake rules consume indexed
 BAM/CRAM. Align FASTQ through the Phase 2 Python API or an explicitly managed
 pbmm2 step, then provide the resulting indexed alignment. A unified alignment
 rule/CLI is not present in this release candidate.

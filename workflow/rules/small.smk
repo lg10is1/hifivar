@@ -10,6 +10,16 @@ SMALL_CONFIG = config.get("small", {})
 if not isinstance(SMALL_CONFIG, dict):
     raise WorkflowError("Effective config section small must be a mapping.")
 
+DEEPVARIANT_MAX_CONCURRENT = int(
+    SMALL_CONFIG.get("max_concurrent_samples", 1)
+)
+if DEEPVARIANT_MAX_CONCURRENT <= 0:
+    raise WorkflowError("small.max_concurrent_samples must be positive.")
+if "deepvariant_slots" not in workflow.global_resources:
+    workflow.register_resource(
+        "deepvariant_slots", DEEPVARIANT_MAX_CONCURRENT
+    )
+
 SMALL_ENABLED = SMALL_CONFIG.get("enabled", False)
 if not isinstance(SMALL_ENABLED, bool):
     raise WorkflowError("small.enabled must be boolean.")
@@ -40,6 +50,12 @@ if SMALL_ENABLED:
 
 def _small_output(sample, suffix):
     return (OUTPUT_ROOT / "small" / f"{sample}{suffix}").as_posix()
+
+
+def _small_tmpdir(sample):
+    configured_root = RUNTIME_CONFIG.get("tmpdir")
+    temporary_root = Path(configured_root) if configured_root else WORK_ROOT
+    return (temporary_root / "deepvariant" / sample / "tmp").as_posix()
 
 
 SMALL_VCFS = [_small_output(sample, ".small.vcf.gz") for sample in SMALL_SAMPLE_IDS]
@@ -74,10 +90,12 @@ rule deepvariant_small:
         SMALL_CONFIG.get("threads", 16)
     resources:
         mem_mb=SMALL_CONFIG.get("memory_mb", 64000),
-        runtime_min=SMALL_CONFIG.get("runtime_minutes", 2880)
+        runtime_min=SMALL_CONFIG.get("runtime_minutes", 2880),
+        deepvariant_slots=1
     params:
         intermediate=lambda wildcards: (
             WORK_ROOT / "deepvariant" / wildcards.sample
-        ).as_posix()
+        ).as_posix(),
+        tmpdir=lambda wildcards: _small_tmpdir(wildcards.sample)
     script:
         "../scripts/run_deepvariant.py"

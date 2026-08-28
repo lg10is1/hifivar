@@ -3,7 +3,7 @@
 Do not report credentials, access tokens, private hostnames, patient identifiers
 or controlled genomic data in a public issue.
 
-For `0.1.0rc1`, security reports should be sent privately through GitHub's
+For `0.1.0rc2`, security reports should be sent privately through GitHub's
 private vulnerability-reporting feature for
 <https://github.com/lg10is1/hifivar> once that channel is enabled. Do not file
 public issues containing credentials, private data, or undisclosed

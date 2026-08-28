@@ -1,6 +1,6 @@
 # Public distribution validation
 
-Candidate: `HiFiVar 0.1.0rc1`
+Candidate: `HiFiVar 0.1.0rc2`
 
 This document separates locally completed package checks from distribution
 paths that still require a clean Linux host. `NOT_RUN` is not a failure and must
@@ -57,20 +57,20 @@ conda build -c conda-forge -c bioconda conda-recipe
 Docker, when authorized:
 
 ```bash
-docker build --pull -t hifivar:0.1.0rc1 .
-docker run --rm hifivar:0.1.0rc1 --version
-docker run --rm hifivar:0.1.0rc1 config validate
-docker run --rm --entrypoint /usr/bin/id hifivar:0.1.0rc1 -u
+docker build --pull -t hifivar:0.1.0rc2 .
+docker run --rm hifivar:0.1.0rc2 --version
+docker run --rm hifivar:0.1.0rc2 config validate
+docker run --rm --entrypoint /usr/bin/id hifivar:0.1.0rc2 -u
 ```
 
 Apptainer:
 
 ```bash
-apptainer build hifivar_0.1.0rc1.sif containers/hifivar.def
-apptainer test hifivar_0.1.0rc1.sif
-apptainer run hifivar_0.1.0rc1.sif --version
-apptainer run hifivar_0.1.0rc1.sif config validate
-sha256sum hifivar_0.1.0rc1.sif
+apptainer build hifivar_0.1.0rc2.sif containers/hifivar.def
+apptainer test hifivar_0.1.0rc2.sif
+apptainer run hifivar_0.1.0rc2.sif --version
+apptainer run hifivar_0.1.0rc2.sif config validate
+sha256sum hifivar_0.1.0rc2.sif
 ```
 
 Documentation smoke must execute the README and quick-start commands rather

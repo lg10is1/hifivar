@@ -35,7 +35,7 @@ def test_conda_core_definitions_are_bounded_and_non_monolithic() -> None:
     assert environment["name"] == "hifivar"
     assert "python=3.12" in dependencies
     assert "snakemake-minimal>=8,<10" in dependencies
-    assert "version = \"0.1.0rc1\"" in recipe
+    assert "version = \"0.1.0rc2\"" in recipe
     assert "noarch: python" in recipe
     assert "license: Apache-2.0" in recipe
     assert "deepvariant" not in recipe.lower()

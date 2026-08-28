@@ -1,6 +1,6 @@
 # Quick start
 
-This guide exercises the public `0.1.0rc1` contract on Linux. Use a tiny test
+This guide exercises the public `0.1.0rc2` contract on Linux. Use a tiny test
 dataset before chromosome- or whole-genome-scale execution.
 
 ## 1. Install the core
@@ -11,7 +11,7 @@ From a release wheel:
 python3 -m venv hifivar-env
 source hifivar-env/bin/activate
 python -m pip install --upgrade pip
-python -m pip install './hifivar-0.1.0rc1-py3-none-any.whl[workflow]'
+python -m pip install './hifivar-0.1.0rc2-py3-none-any.whl[workflow]'
 hifivar --version
 ```
 
@@ -133,7 +133,7 @@ delete original FASTQ/BAM/CRAM/VCF files to recover a failed workflow.
 
 ## FASTQ boundary
 
-`0.1.0rc1` provides pbmm2 alignment through the Python Phase 2 API, but the
+`0.1.0rc2` provides pbmm2 alignment through the Python Phase 2 API, but the
 packaged DAG does not yet contain an alignment rule. For the public Snakemake
 quick start, use an existing indexed BAM/CRAM. FASTQ remains valid for the
 separate hifiasm assembly branch. A unified FASTQ-to-calling CLI is future work.

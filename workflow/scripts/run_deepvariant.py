@@ -45,6 +45,7 @@ request = DeepVariantRequest(
     overwrite=bool(small_config.get("overwrite", False)),
     intermediate_directory=Path(str(snakemake.params.intermediate)),  # type: ignore[name-defined]
     logging_directory=Path(str(Path(str(snakemake.log[0])).parent)),  # type: ignore[name-defined]
+    temporary_directory=Path(str(snakemake.params.tmpdir)),  # type: ignore[name-defined]
 )
 wrapper = DeepVariantWrapper(
     runtime=DeepVariantRuntime.from_config(snakemake.config),  # type: ignore[name-defined]
