@@ -21,13 +21,13 @@ Download both release artifacts and published SHA256 checksums. Then:
 python3 -m venv hifivar-env
 source hifivar-env/bin/activate
 python -m pip install --upgrade pip
-python -m pip install './hifivar-0.1.0rc2-py3-none-any.whl[workflow]'
+python -m pip install './hifivar-0.1.0rc3-py3-none-any.whl[workflow]'
 ```
 
 The expected artifacts are:
 
-- `hifivar-0.1.0rc2-py3-none-any.whl`
-- `hifivar-0.1.0rc2.tar.gz`
+- `hifivar-0.1.0rc3-py3-none-any.whl`
+- `hifivar-0.1.0rc3.tar.gz`
 
 The project is not yet on PyPI. Do not use `pip install hifivar` until a
 separate PyPI publication has been completed and verified.
@@ -37,7 +37,7 @@ separate PyPI publication has been completed and verified.
 ```bash
 git clone https://github.com/lg10is1/hifivar.git
 cd hifivar
-git checkout v0.1.0-rc2
+git checkout v0.1.0-rc3
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
@@ -92,7 +92,7 @@ The final command must print a directory containing `Snakefile`, `rules/`,
 ## Version policy
 
 `src/hifivar/__init__.py` is the canonical version source. Package metadata and
-the CLI must both report the PEP 440 version `0.1.0rc2`.
+the CLI must both report the PEP 440 version `0.1.0rc3`.
 
 ## License
 

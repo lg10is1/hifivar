@@ -2,7 +2,11 @@
 
 All notable changes to HiFiVar will be documented in this file.
 
-## [Unreleased]
+## [0.1.0rc3] - 2026-08-28
+
+This release candidate contains only the independently Linux-validated Phase 9
+evidence-source attribution correction and its regression coverage. It adds no
+caller, cross-sample clustering, scientific confidence rule, or VCF rewrite.
 
 ### Fixed
 - Derive per-sample Jasmine evidence membership from the validated `SUPP_VEC`

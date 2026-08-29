@@ -4,11 +4,11 @@ No item in this checklist authorizes an automatic push, tag, PyPI/GitHub
 release, container publication, or version bump. A human release owner must
 approve those actions explicitly.
 
-## 0.1.0rc2 candidate identity
+## 0.1.0rc3 candidate identity
 
 - Canonical version source: `src/hifivar/__init__.py`
-- Expected wheel: `dist/hifivar-0.1.0rc2-py3-none-any.whl`
-- Expected sdist: `dist/hifivar-0.1.0rc2.tar.gz`
+- Expected wheel: `dist/rc3/hifivar-0.1.0rc3-py3-none-any.whl`
+- Expected sdist: `dist/rc3/hifivar-0.1.0rc3.tar.gz`
 - Candidate preparation does not create a commit/tag or publish an artifact.
 
 ## Source and scope
@@ -68,6 +68,8 @@ approve those actions explicitly.
 - [x] Preserve the historical approval for `0.1.0rc1`.
 - [x] Obtain explicit approval to prepare `0.1.0rc2` from the independently
       validated DAG/runtime and GLnexus sample-order remediation.
+- [x] Obtain explicit approval to prepare `0.1.0rc3` from the independently
+      validated Jasmine SUPP_VEC evidence-source remediation.
 - [ ] Commit the reviewed release candidate.
 - [ ] Create the approved annotated tag.
 - [ ] Push only after explicit approval.
