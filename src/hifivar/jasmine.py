@@ -19,7 +19,10 @@ from hifivar.validation import validate_output_file
 
 _VERSION = re.compile(r"(\d+(?:\.\d+)+)")
 _CONTIG_HEADER = re.compile(r"^##contig=<ID=([^,>]+)")
+_INFO_HEADER = re.compile(r"^##INFO=<ID=([^,>]+)")
 _FORMAT_HEADER = re.compile(r"^##FORMAT=<ID=([^,>]+)")
+_VCF_FILEFORMAT = re.compile(r"^##fileformat=VCFv(\d+)\.(\d+)$")
+_VCF44_MIN_TABIX = (1, 23, 1)
 _SORT_CHUNK_RECORDS = 100_000
 
 
@@ -175,6 +178,7 @@ class JasmineWrapper:
         )
         runtime += jasmine_result.duration_seconds
         validate_output_file(raw)
+        _require_tabix_compatibility(raw, versions["tabix"])
         _sort_jasmine_vcf(
             raw,
             sorted_vcf,
@@ -304,25 +308,74 @@ def _decompress_vcf(
         ) from error
 
 
-def _source_format_headers(
+def _source_field_headers(
     sources: tuple[Path, ...],
-) -> dict[str, str]:
-    definitions: dict[str, str] = {}
+) -> tuple[dict[str, str], dict[str, str]]:
+    info_definitions: dict[str, str] = {}
+    format_definitions: dict[str, str] = {}
     for source in sources:
         try:
             with source.open("r", encoding="utf-8", newline="") as handle:
                 for raw_line in handle:
                     line = raw_line.rstrip("\r\n")
-                    match = _FORMAT_HEADER.match(line)
-                    if match and match.group(1) not in definitions:
-                        definitions[match.group(1)] = line
+                    info_match = _INFO_HEADER.match(line)
+                    if (
+                        info_match
+                        and info_match.group(1) not in info_definitions
+                    ):
+                        info_definitions[info_match.group(1)] = line
+                    format_match = _FORMAT_HEADER.match(line)
+                    if (
+                        format_match
+                        and format_match.group(1) not in format_definitions
+                    ):
+                        format_definitions[format_match.group(1)] = line
                     if line.startswith("#CHROM\t"):
                         break
         except (OSError, UnicodeError) as error:
             raise OutputValidationError(
                 f"Unable to read decompressed Jasmine input '{source}': {error}"
             ) from error
-    return definitions
+    return info_definitions, format_definitions
+
+
+def _require_tabix_compatibility(raw_vcf: Path, tabix_version: str) -> None:
+    """Reject a tabix version known to be incompatible with Jasmine VCFv4.4.
+
+    The original Jasmine header is preserved.  HiFiVar never downgrades the
+    declared VCF version to make an older indexer accept the file.
+    """
+
+    fileformat: tuple[int, int] | None = None
+    try:
+        with raw_vcf.open("r", encoding="utf-8", newline="") as handle:
+            for raw_line in handle:
+                line = raw_line.rstrip("\r\n")
+                match = _VCF_FILEFORMAT.match(line)
+                if match:
+                    fileformat = (int(match.group(1)), int(match.group(2)))
+                    break
+                if line.startswith("#CHROM\t") or not line.startswith("#"):
+                    break
+    except (OSError, UnicodeError) as error:
+        raise OutputValidationError(
+            f"Unable to inspect Jasmine VCF fileformat '{raw_vcf}': {error}"
+        ) from error
+
+    if fileformat is None:
+        raise OutputValidationError("Jasmine VCF lacks ##fileformat.")
+    if fileformat < (4, 4):
+        return
+
+    parsed_version = tuple(int(item) for item in tabix_version.split("."))
+    if parsed_version < _VCF44_MIN_TABIX:
+        minimum = ".".join(str(item) for item in _VCF44_MIN_TABIX)
+        raise ToolVersionError(
+            f"Jasmine emitted VCFv{fileformat[0]}.{fileformat[1]}, but tabix "
+            f"{tabix_version} is below the Linux-validated minimum {minimum}. "
+            "Use a compatible HTSlib/tabix release; HiFiVar will not rewrite "
+            "the VCF header to claim an older format."
+        )
 
 
 def _sort_jasmine_vcf(
@@ -335,20 +388,23 @@ def _sort_jasmine_vcf(
     """Sort Jasmine records without loading the complete VCF into memory.
 
     Jasmine 1.1.5 may emit chromosome blocks out of reference order and may
-    omit FORMAT declarations copied from its inputs.  Both conditions make a
-    biologically valid merge impossible to index.  Preserve the raw output,
-    restore only definitions present in the source headers, and external-sort
-    records using the contig order declared by Jasmine's output header.
+    omit INFO/FORMAT declarations copied from its inputs.  These conditions
+    make a biologically valid merge impossible to index.  Preserve the raw
+    output, restore only definitions present in the source headers, and
+    external-sort records using the contig order declared by Jasmine's output
+    header.
     """
 
     _prepare_owned_file(destination, overwrite=overwrite)
     temporary = destination.with_name(f".{destination.name}.hifivar.tmp")
     _prepare_owned_file(temporary, overwrite=overwrite)
-    source_formats = _source_format_headers(source_vcfs)
+    source_infos, source_formats = _source_field_headers(source_vcfs)
     headers: list[str] = []
     chrom_header: str | None = None
     contig_order: dict[str, int] = {}
+    declared_infos: set[str] = set()
     declared_formats: set[str] = set()
+    used_infos: set[str] = set()
     used_formats: set[str] = set()
     chunks: list[Path] = []
     records: list[str] = []
@@ -362,6 +418,9 @@ def _sort_jasmine_vcf(
                     contig_match = _CONTIG_HEADER.match(line)
                     if contig_match and contig_match.group(1) not in contig_order:
                         contig_order[contig_match.group(1)] = len(contig_order)
+                    info_match = _INFO_HEADER.match(line)
+                    if info_match:
+                        declared_infos.add(info_match.group(1))
                     format_match = _FORMAT_HEADER.match(line)
                     if format_match:
                         declared_formats.add(format_match.group(1))
@@ -382,6 +441,12 @@ def _sort_jasmine_vcf(
                 if len(fields) < 8:
                     raise OutputValidationError("Malformed Jasmine VCF record.")
                 _record_sort_key(line, contig_order)
+                if fields[7] not in ("", "."):
+                    used_infos.update(
+                        item.partition("=")[0]
+                        for item in fields[7].split(";")
+                        if item
+                    )
                 if len(fields) > 8 and fields[8] not in ("", "."):
                     used_formats.update(fields[8].split(":"))
                 records.append(line + "\n")
@@ -402,6 +467,14 @@ def _sort_jasmine_vcf(
             raise OutputValidationError("Jasmine VCF lacks a #CHROM header.")
         if not any(line.startswith("##fileformat=") for line in headers):
             raise OutputValidationError("Jasmine VCF lacks ##fileformat.")
+        missing_infos = used_infos - declared_infos
+        unknown_infos = missing_infos - source_infos.keys()
+        if unknown_infos:
+            names = ", ".join(sorted(unknown_infos))
+            raise OutputValidationError(
+                "Jasmine used INFO identifiers without source definitions: "
+                f"{names}."
+            )
         missing_formats = used_formats - declared_formats
         unknown_formats = missing_formats - source_formats.keys()
         if unknown_formats:
@@ -414,6 +487,9 @@ def _sort_jasmine_vcf(
         with temporary.open("x", encoding="utf-8", newline="\n") as output:
             for header in headers:
                 output.write(header + "\n")
+            for name, definition in source_infos.items():
+                if name in missing_infos:
+                    output.write(definition + "\n")
             for name, definition in source_formats.items():
                 if name in missing_formats:
                     output.write(definition + "\n")

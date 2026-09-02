@@ -1,4 +1,5 @@
 import json
+import gzip
 from pathlib import Path
 import struct
 import zlib
@@ -21,9 +22,15 @@ def write_bgzf(path: Path, payload: bytes) -> None:
 
 def vcf(sample="S1"):
     return ("##fileformat=VCFv4.3\n##contig=<ID=chr1,length=4>\n"
+            "##source=PAV 2.4.6.0\n"
             '##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type">\n'
+            '##INFO=<ID=SVLEN,Number=.,Type=Integer,Description="Length">\n'
             f"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{sample}\n"
-            "chr1\t2\tv1\tA\t<DEL>\t.\tPASS\tSVTYPE=DEL\tGT\t0/1\n").encode()
+            "chr1\t1\tsnv1\tA\tC\t.\tPASS\tSVTYPE=SNV\tGT\t0/1\n"
+            "chr1\t2\tins49\tA\t<INS>\t.\tPASS\tSVTYPE=INS;SVLEN=49\tGT\t0/1\n"
+            "chr1\t2\tins50\tA\t<INS>\t.\tPASS\tSVTYPE=INS;SVLEN=50\tGT\t0/1\n"
+            "chr1\t2\tdel50\tA\t<DEL>\t.\tCOMPOUND\tSVTYPE=DEL;SVLEN=-50\tGT\t0/1\n"
+            "chr1\t2\tinv1\tA\t<INV>\t.\tPASS\tSVTYPE=INV;SVLEN=100\tGT\t0/1\n").encode()
 
 @pytest.fixture
 def reference(tmp_path):
@@ -88,6 +95,21 @@ def test_pav_dry_run_and_complete(tmp_path, reference, assemblies):
     assert result.pav_version == "2.4.6"
     assert result.pav_version_source == "config"
     assert result.to_dict()["pav_version_source"] == "config"
+    assert result.selection is not None
+    assert result.selection.total_records == 5
+    assert result.selection.selected_records == 3
+    assert result.selection.policy.startswith("PAV_2.4.6_VARTYPE")
+    assert result.finalizer_versions == {"bgzip": "1.21.0", "tabix": "1.21.0"}
+    with gzip.open(result.artifact.raw_vcf, "rt", encoding="utf-8") as handle:
+        raw_text = handle.read()
+    with gzip.open(result.artifact.vcf_path, "rt", encoding="utf-8") as handle:
+        selected_text = handle.read()
+    assert "snv1" in raw_text and "ins49" in raw_text
+    assert "snv1" not in selected_text and "ins49" not in selected_text
+    for record_id in ("ins50", "del50", "inv1"):
+        assert record_id in selected_text
+    assert "##hifivar_pav_sv_selection=PAV_2.4.6_VARTYPE" in selected_text
+    assert "COMPOUND" in selected_text
     table = (item.work_directory / "assemblies.tsv").read_text()
     assert "HAP_h1" in table and "HAP_h2" in table
 
@@ -169,6 +191,27 @@ class InvalidVcfRunner(FakeRunner):
             return CommandResult(args,0,"","",.1,None,True)
         return super().run(command,**kwargs)
 
+class MissingSvlenRunner(FakeRunner):
+    def run(self, command, **kwargs):
+        args = tuple(str(x) for x in command)
+        if args and args[0] == "snakemake" and "--version" not in args:
+            raw = self.request.work_directory / "S1.vcf.gz"
+            payload = vcf().replace(b"SVTYPE=INS;SVLEN=50", b"SVTYPE=INS")
+            write_bgzf(raw, payload)
+            write_bgzf(Path(f"{raw}.tbi"), b"TBI\x01")
+            return CommandResult(args, 0, "", "", .1, None, True)
+        return super().run(command, **kwargs)
+
+class WrongPavVersionRunner(FakeRunner):
+    def run(self, command, **kwargs):
+        args = tuple(str(x) for x in command)
+        if args and args[0] == "snakemake" and "--version" not in args:
+            raw = self.request.work_directory / "S1.vcf.gz"
+            write_bgzf(raw, vcf().replace(b"PAV 2.4.6.0", b"PAV 2.4.5"))
+            write_bgzf(Path(f"{raw}.tbi"), b"TBI\x01")
+            return CommandResult(args, 0, "", "", .1, None, True)
+        return super().run(command, **kwargs)
+
 def test_external_failure_is_propagated(tmp_path,reference,assemblies):
     item=request(tmp_path,reference,assemblies,AssemblySvCaller.SVIM_ASM)
     with pytest.raises(CommandExecutionError,match="exit code 1"):
@@ -181,3 +224,38 @@ def test_pav_missing_or_invalid_output_is_rejected(tmp_path,reference,assemblies
     item=request(tmp_path,reference,assemblies,AssemblySvCaller.PAV)
     with pytest.raises(OutputValidationError):
         PavWrapper(snakefile=snakefile,pav_version="2.4.6",runner=runner_type(item)).run(item)
+
+def test_pav_sv_only_selection_rejects_missing_svlen(tmp_path, reference, assemblies):
+    snakefile = tmp_path / "pav_site" / "Snakefile"
+    snakefile.parent.mkdir(); snakefile.write_text("# PAV\n")
+    item = request(tmp_path, reference, assemblies, AssemblySvCaller.PAV)
+    with pytest.raises(OutputValidationError, match="lacks one scalar SVLEN"):
+        PavWrapper(
+            snakefile=snakefile,
+            pav_version="2.4.6",
+            runner=MissingSvlenRunner(item),
+        ).run(item)
+    assert (item.work_directory / "S1.vcf.gz").exists()
+    assert not item.output_vcf.exists()
+
+def test_pav_vcf_version_must_match_config(tmp_path, reference, assemblies):
+    snakefile = tmp_path / "pav_site" / "Snakefile"
+    snakefile.parent.mkdir(); snakefile.write_text("# PAV\n")
+    item = request(tmp_path, reference, assemblies, AssemblySvCaller.PAV)
+    with pytest.raises(OutputValidationError, match="differs from configured"):
+        PavWrapper(
+            snakefile=snakefile,
+            pav_version="2.4.6",
+            runner=WrongPavVersionRunner(item),
+        ).run(item)
+
+def test_pav_sv_selection_rejects_unvalidated_version(tmp_path, reference, assemblies):
+    snakefile = tmp_path / "pav_site" / "Snakefile"
+    snakefile.parent.mkdir(); snakefile.write_text("# PAV\n")
+    item = request(tmp_path, reference, assemblies, AssemblySvCaller.PAV)
+    with pytest.raises(ToolVersionError, match="validated only for PAV 2.4.6"):
+        PavWrapper(
+            snakefile=snakefile,
+            pav_version="2.5.0",
+            runner=FakeRunner(item),
+        ).run(item)

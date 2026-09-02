@@ -31,5 +31,7 @@ request = AssemblySvRequest(
 )
 PavWrapper(
     snakefile=str(caller["snakefile"]), executable=str(caller.get("executable", "snakemake")),
+    bgzip_executable=str(caller.get("bgzip_executable", "bgzip")),
+    tabix_executable=str(caller.get("tabix_executable", "tabix")),
     pav_version=str(caller.get("version", "VERSION_PENDING_LINUX_VERIFICATION")),
 ).run(request, stderr_path=Path(str(snakemake.log[0])))  # type: ignore[name-defined]

@@ -32,13 +32,30 @@ Jasmine 1.1.5 is now invoked through `bash` when the resolved executable is a
 text launcher without a shebang. Source BGZF VCFs are stream-decompressed in
 `work_directory` in the exact runnable-source order required by SUPP_VEC;
 original caller VCFs are never changed. Jasmine's raw VCF is retained, missing
-FORMAT definitions are copied only from actual source headers, and records are
-external-sorted by declared contig order and POS before bgzip/tabix.
+INFO and FORMAT definitions are copied only from actual source headers, and
+records are external-sorted by declared contig order and POS before
+bgzip/tabix. An INFO/FORMAT identifier without a raw or source definition is
+rejected; HiFiVar never invents a field type.
+
+Real SCZ assembly validation showed that Jasmine 1.1.5 may emit VCFv4.4 and
+that tabix/HTSlib 1.21 rejects this valid header while 1.23.1 indexes the
+unchanged file. Phase 9 therefore requires tabix 1.23.1 or newer for VCFv4.4
+output. The original header is preserved and is never downgraded to claim an
+older VCF format.
 
 Truvari version detection now uses `truvari version`, with `--version` retained
 only as an older-version fallback. These changes address P9-JASMINE-001/002/003
-and P9-TRUVARI-001. Linux delta execution is still required before changing
-the independent audit result to PASS.
+and P9-TRUVARI-001. Independent Linux delta execution passed with Jasmine
+1.1.5, tabix/HTSlib 1.23.1, VCFv4.4, a typed CIPOS header, and no Truvari BND
+type crash.
+
+PAV 2.4.6's native root VCF is not accepted directly as an assembly-SV source
+because it mixes SNVs, short indels, and SVs. The sixth-source path may use only
+the Phase 8 PAV SV-only derived artifact, whose selection follows PAV's own
+version-locked VARTYPE rule and leaves the root VCF unchanged. Linux real-data
+delta validation passed with 81,490 six-source records, 29,962 PAV-supported
+records, correct SUPP_VEC membership, typed CIPOS metadata, and unchanged
+inputs. Five-source harmonization remains supported when PAV is disabled.
 
 Post-RC2 real-data validation identified that native IDs from Sawfish,
 Sniffles2, pbsv, and cuteSV do not share a caller-prefix convention. Evidence
@@ -95,8 +112,10 @@ unit tests, fake integration tests, and Snakemake dry-run.
 
 - Jasmine official command contract: reviewed against the upstream repository.
 - Truvari bench contract: reviewed against official documentation.
-- LINUX_REVALIDATION_REQUIRED: P9-JASMINE-001, P9-JASMINE-002,
-  P9-JASMINE-003, P9-TRUVARI-001
+- VCFv4.4 indexing: real Linux PASS with tabix/HTSlib 1.23.1; 1.21 is a known
+  incompatible deployment for this Phase 9 output contract.
+- P9-JASMINE-001/002/003 and P9-TRUVARI-001 Linux delta: PASS
+- PAV SV-only sixth-source handoff: LINUX REAL-DATA PASS
 
 The supported Linux/HPC deployment boundary is documented in
 `docs/deployment.md`.
@@ -107,6 +126,5 @@ The supported Linux/HPC deployment boundary is documented in
   present. Native IDLIST values remain provenance because caller ID formats are
   heterogeneous; legacy records without either mapping are marked UNRESOLVED.
 - Biological clustering thresholds require later benchmark calibration.
-- PAV, Jasmine, and Truvari remediation passed independent Linux/HPC delta
-  validation; HiPhase, hifiasm, SVIM-asm, and upstream-tool results remain
-  independent validation evidence.
+- Jasmine/Truvari header remediation and the PAV SV-only six-source handoff
+  passed independent Linux/HPC real-data delta validation.

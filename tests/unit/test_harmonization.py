@@ -5,7 +5,7 @@ import pytest
 import hifivar.jasmine as jasmine_module
 from hifivar.assembly_sv import SVEvidenceSource
 from hifivar.command import CommandResult
-from hifivar.exceptions import CommandExecutionError, InputValidationError, OutputValidationError
+from hifivar.exceptions import CommandExecutionError, InputValidationError, OutputValidationError, ToolVersionError
 from hifivar.harmonization import EvidenceClass, EvidenceRunStatus, SVEvidenceSourceArtifact, SVHarmonizationRequest, iter_sv_evidence, write_evidence_table
 from hifivar.jasmine import JasmineResultStatus, JasmineWrapper
 from hifivar.reference import ReferenceGenome
@@ -19,6 +19,9 @@ def bgzf(path,payload):
 def vcf(sample="S1",records=""):
     return ("##fileformat=VCFv4.3\n##contig=<ID=chr1,length=1000>\n"
             '##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type">\n'
+            '##INFO=<ID=END,Number=1,Type=Integer,Description="End">\n'
+            '##INFO=<ID=IDLIST,Number=.,Type=String,Description="Source IDs">\n'
+            '##INFO=<ID=CIPOS,Number=2,Type=Integer,Description="Position interval">\n'
             '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n'
             f"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{sample}\n"+records).encode()
 
@@ -174,11 +177,12 @@ class UnsortedJasmineRunner(FakeRunner):
                 "##contig=<ID=chr1,length=1000>\n"
                 "##contig=<ID=chr2,length=1000>\n"
                 '##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type">\n'
+                '##INFO=<ID=IDLIST,Number=.,Type=String,Description="Source IDs">\n'
                 "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\n"
                 "chr2\t5\tJ2\tA\t<DEL>\t.\tPASS\t"
                 "SVTYPE=DEL;END=8;IDLIST=sawfish:r2\tAD:GT\t3,2:0/1\n"
                 "chr1\t10\tJ1\tA\t<DEL>\t.\tPASS\t"
-                "SVTYPE=DEL;END=20;IDLIST=sawfish:r1\tAD:GT\t4,3:0/1\n"
+                "SVTYPE=DEL;END=20;CIPOS=-2,2;IDLIST=sawfish:r1\tAD:GT\t4,3:0/1\n"
             )
             return CommandResult(args, 0, "", "", .1, None, True)
         return super().run(command, **kwargs)
@@ -200,6 +204,10 @@ def test_jasmine_unzips_inputs_restores_format_and_sorts_by_contig(
         "##fileformat=VCFv4.3\n"
         "##contig=<ID=chr1,length=1000>\n"
         "##contig=<ID=chr2,length=1000>\n"
+        '##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type">\n'
+        '##INFO=<ID=END,Number=1,Type=Integer,Description="End">\n'
+        '##INFO=<ID=IDLIST,Number=.,Type=String,Description="Source IDs">\n'
+        '##INFO=<ID=CIPOS,Number=2,Type=Integer,Description="Position interval">\n'
         '##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths">\n'
         '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n'
         "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\n"
@@ -219,10 +227,51 @@ def test_jasmine_unzips_inputs_restores_format_and_sorts_by_contig(
     assert raw.exists() and sorted_vcf.exists()
     sorted_text = sorted_vcf.read_text()
     assert "##FORMAT=<ID=AD" in sorted_text
+    assert "##INFO=<ID=CIPOS,Number=2,Type=Integer" in sorted_text
     records = [line for line in sorted_text.splitlines() if not line.startswith("#")]
     assert [line.split("\t", 1)[0] for line in records] == ["chr1", "chr2"]
     listing = (item.work_directory / "jasmine.inputs.txt").read_text()
     assert ".unzipped.vcf" in listing and ".vcf.gz" not in listing
+
+
+def test_jasmine_vcf44_requires_validated_tabix_without_rewriting(tmp_path):
+    raw = tmp_path / "jasmine.raw.vcf"
+    raw.write_text(
+        "##fileformat=VCFv4.4\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n",
+        encoding="utf-8",
+    )
+    original = raw.read_bytes()
+
+    with pytest.raises(ToolVersionError, match="tabix 1.21.*minimum 1.23.1"):
+        jasmine_module._require_tabix_compatibility(raw, "1.21")
+
+    jasmine_module._require_tabix_compatibility(raw, "1.23.1")
+    assert raw.read_bytes() == original
+
+
+def test_jasmine_rejects_info_without_raw_or_source_definition(tmp_path):
+    raw = tmp_path / "raw.vcf"
+    raw.write_text(
+        "##fileformat=VCFv4.3\n"
+        "##contig=<ID=chr1,length=1000>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t10\tv1\tA\t<DEL>\t.\tPASS\tUNDECLARED=1\n",
+        encoding="utf-8",
+    )
+    source_vcf = tmp_path / "source.vcf"
+    source_vcf.write_bytes(vcf())
+
+    with pytest.raises(
+        OutputValidationError,
+        match="INFO identifiers without source definitions: UNDECLARED",
+    ):
+        jasmine_module._sort_jasmine_vcf(
+            raw,
+            tmp_path / "sorted.vcf",
+            (source_vcf,),
+            overwrite=False,
+        )
 
 
 class TruvariVersionRunner:

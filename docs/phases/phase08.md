@@ -15,22 +15,46 @@ inputs and invokes a configured PAV Snakefile through `CommandRunner`.
 `HAP_h1` and `HAP_h2` remain independent inputs. Raw PAV output is retained.
 
 The adapter runs PAV's default DAG instead of requesting HiFiVar's final VCF
-as an upstream Snakemake target.  It validates PAV's native
-`{sample}.vcf.gz` and TBI in the analysis directory, retains both files, then
-atomically copies them to `{sample}.pav.assembly.sv.vcf.gz` and its index.
+as an upstream Snakemake target. It validates and retains PAV's native mixed
+`{sample}.vcf.gz` and TBI in the analysis directory. It then streams a separate
+SV-only plain VCF and finalizes it with configured bgzip/tabix executables as
+`{sample}.pav.assembly.sv.vcf.gz` plus TBI.
 This contract addresses audit finding P8-PAV-001 without changing PAV itself.
 The command deliberately has no explicit output target: PAV 2.4.6's default
 `rule all` owns its internal target names. Real execution also requires an
 explicit numeric `assembly_sv.pav.version`; the unresolved placeholder remains
 valid for planning only and cannot be recorded as a completed caller version.
-When `overwrite: true`, HiFiVar atomically replaces only its owned
-`config.json`, `assemblies.tsv`, and captured outputs. It does not clear PAV's
-work directory.
+When `overwrite: true`, HiFiVar replaces only its owned `config.json`,
+`assemblies.tsv`, SV-only intermediate, and finalized output paths. It does not
+clear PAV's work directory or rewrite PAV's native mixed VCF and index.
+
+### Post-RC3 real-data handoff remediation
+
+Whole-genome validation showed that PAV's native root `{sample}.vcf.gz` is a
+mixed callset containing SNVs, short indels, and structural variants. PAV 2.4.6
+has no official SV-only VCF target. Its own VCF writer nevertheless defines the
+authoritative VARTYPE boundary: `sv_inv` records are structural, while
+`svindel_ins` and `svindel_del` records are structural when `SVLEN >= 50`
+before PAV negates deletion lengths in VCF output.
+
+HiFiVar now mirrors that exact, version-locked rule by retaining INV records
+and INS/DEL records with absolute `SVLEN >= 50`. Selection is streaming and
+keeps PASS and non-PASS records, original IDs, alleles, FILTER, genotype,
+haplotype, coordinates, and INFO fields. The mixed root VCF and its index remain
+immutable provenance. Unknown SVTYPE, missing/scalar-invalid SVLEN, missing PAV
+source version, or a non-2.4.6 PAV release fails explicitly. This is not an ad
+hoc HiFiVar scientific threshold; it is the PAV 2.4.6 VARTYPE implementation.
+
+The SV-only adapter delta passed Linux real-data validation against the
+SCZ_BC2003 PAV 2.4.6 mixed root VCF: 29,962 eligible records were selected with
+zero missing, extra, short-indel, SNV, or source-field differences. The derived
+artifact is authorized as the sixth Phase 9 Jasmine source.
 
 - PAV implementation: PASS
 - PAV mock verification: PASS
 - PAV upstream 2.4.6 tiny Linux/HPC validation: PASS (554/554 jobs)
 - PAV adapter delta verification after P8-PAV-001: PASS (Linux/HPC, Apptainer)
+- PAV mixed-to-SV-only adapter delta: LINUX REAL-DATA PASS
 
 ### Production deployment contract
 
@@ -94,7 +118,10 @@ cover this boundary.
 - `sample.svim_asm.assembly.sv.vcf.gz`
 
 These are independent evidence streams. Phase 8 creates no merged or final SV
-callset and does not execute Jasmine or Truvari.
+callset and does not execute Jasmine or Truvari. The PAV output is now a derived
+SV-only artifact whose immutable raw evidence remains the native mixed root
+VCF. Six-source downstream use is enabled only for this validated derived
+artifact, never for the mixed PAV root VCF.
 
 ## External verification
 

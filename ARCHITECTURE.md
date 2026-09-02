@@ -622,12 +622,21 @@ Phase 8 fans validated hifiasm haplotype FASTAs into two independent evidence
 streams:
 
     hap1/hap2 FASTA
-       +--> PAV workflow adapter --> PAV raw/final assembly SV artifact
+       +--> PAV workflow adapter --> immutable mixed root VCF
+                                   --> PAV-defined SV-only artifact
        +--> minimap2/samtools --> SVIM-asm --> SVIM-asm raw/final artifact
 
 PAV and SVIM-asm have separate wrappers, work directories, commands, raw VCFs,
 indexes, intermediate files, versions, and provenance. Phase 8 performs no
 clustering and neither artifact is labelled as harmonized.
+
+PAV 2.4.6's root VCF contains SNVs, short indels, and SVs. HiFiVar retains that
+mixed file as raw evidence and derives the PAV assembly-SV artifact by applying
+PAV 2.4.6's own VARTYPE rule: inversions are structural, and merged
+insertion/deletion records are structural when absolute `SVLEN` is at least 50.
+This streaming selection preserves PASS and non-PASS records, genotypes,
+haplotypes, alleles, coordinates, IDs, and FILTER values. The derived VCF is
+BGZF/tabix finalized independently; the raw PAV VCF is never rewritten.
 
 ## Phase 9 SV harmonization boundary
 

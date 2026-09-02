@@ -57,6 +57,8 @@ assembly_sv:
     executable: snakemake
     snakefile: PAV_SNAKEFILE_PENDING_LINUX_VERIFICATION
     version: VERSION_PENDING_LINUX_VERIFICATION
+    bgzip_executable: bgzip
+    tabix_executable: tabix
     threads: 32
     memory_mb: 64000
     runtime_minutes: 2880

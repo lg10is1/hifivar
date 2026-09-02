@@ -6,9 +6,10 @@ databases and credentials stay outside the Python package.
 
 | Component | Version/backend | Evidence status | Production contract |
 |---|---|---|---|
-| PAV | 2.4.6, Apptainer | REAL PASS | `apptainer exec --bind <root> <image> snakemake`; host copy of the same image's `/opt/pav` workflow is required and refreshed on image upgrade. |
+| PAV | 2.4.6, Apptainer | REAL CALLER + SV-ONLY ADAPTER PASS | `apptainer exec --bind <root> <image> snakemake`; host copy of the same image's `/opt/pav` workflow is required and refreshed on image upgrade. PAV's mixed root VCF is retained immutably; the Linux-validated SV-only handoff uses host bgzip/tabix 1.23.1 and PAV's version-locked VARTYPE boundary. |
 | IGV | 2.19.6 under Xvfb | REAL PASS | IGV batch mode through `IgvWrapper`; headless display is site-provisioned. IGV may attempt optional default-track network access. |
 | GLnexus | 1.4.1 + bcftools 1.21 | REAL PASS | Pinned `workflow/envs/glnexus.yaml`; GLnexus/bcftools wrapper and Snakemake cohort track validated. `memory_gb` is an explicit run-specific scheduler/CLI cap; a three-sample WGS run peaked near 153 GB and used 192–200 GB planning, which is evidence for that workload rather than a universal default. |
+| Jasmine finalization | Jasmine 1.1.5 + tabix/HTSlib 1.23.1 | REAL WRAPPER + SIX-SOURCE PASS | Real VCFv4.4 indexing passed with 1.23.1 and failed with 1.21. HiFiVar preserves the original header, restores only source-defined INFO/FORMAT metadata, and rejects older tabix for VCFv4.4. Six-source SCZ_BC2003 evidence using the derived PAV SV-only artifact passed. |
 | ANNOVAR | 2020Jun08 + explicit hg38 database | REAL PASS | Native Perl adapter; database root/version provisioned outside HiFiVar; no automatic download. |
 | VEP | offline/cache boundary | ENVIRONMENT BLOCKED | Wrapper/mock audited, but no real executable/cache was available. Do not claim real support until revalidated. |
 | hap.py | compatibility target 0.3.15 | REAL PASS | Native/managed Linux environment; explicit truth VCF, confident BED, reference and resource versions. Empty `--version` output requires an explicit trustworthy configured version. |

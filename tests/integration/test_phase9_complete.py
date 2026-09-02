@@ -28,6 +28,9 @@ def vcf(sample, records=""):
         "##fileformat=VCFv4.3\n"
         "##contig=<ID=chr1,length=1000>\n"
         '##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type">\n'
+        '##INFO=<ID=END,Number=1,Type=Integer,Description="End">\n'
+        '##INFO=<ID=SUPP_VEC,Number=1,Type=String,Description="Support vector">\n'
+        '##INFO=<ID=IDLIST,Number=.,Type=String,Description="Source IDs">\n'
         '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n'
         f"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{sample}\n"
         + records

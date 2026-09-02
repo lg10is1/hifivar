@@ -227,7 +227,11 @@ _SV_CALLER_KEYS = {
 
 _ASSEMBLY_SV_KEYS = {
     "pav": frozenset(
-        {"enabled", "executable", "snakefile", "version", "threads", "memory_mb", "runtime_minutes"}
+        {
+            "enabled", "executable", "snakefile", "version",
+            "bgzip_executable", "tabix_executable", "threads", "memory_mb",
+            "runtime_minutes",
+        }
     ),
     "svim_asm": frozenset(
         {

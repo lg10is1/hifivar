@@ -2,6 +2,36 @@
 
 All notable changes to HiFiVar will be documented in this file.
 
+## [Unreleased]
+
+## [0.1.0rc4] - 2026-09-02
+
+This release candidate contains only the independently Linux-validated
+Jasmine/HTSlib compatibility correction and PAV 2.4.6 SV-only assembly-evidence
+handoff. It adds no caller and no new confidence or biological-truth rule.
+
+### Fixed
+
+- Restore missing Jasmine INFO and FORMAT declarations only from immutable
+  source VCF headers before indexing. This preserves typed BND fields such as
+  `CIPOS` for downstream Truvari parsing and rejects identifiers that have no
+  authoritative definition instead of inventing metadata.
+- Preserve Jasmine's original VCF version declaration. VCFv4.4 output now
+  requires the Linux-validated tabix/HTSlib 1.23.1 compatibility floor rather
+  than silently rewriting the header for HTSlib 1.21.
+- Preserve PAV 2.4.6's native mixed SNV/indel/SV VCF as immutable raw evidence
+  while producing the assembly-SV artifact with PAV's own VARTYPE boundary:
+  INV records and INS/DEL records with absolute `SVLEN >= 50`. The streaming
+  derived output retains PASS and non-PASS records and all native fields before
+  explicit bgzip/tabix finalization.
+
+### Known limitations
+
+- The PAV SV-only selection contract is validated only for PAV 2.4.6; other
+  PAV releases remain unsupported until independently verified.
+- VCFv4.4 finalization requires tabix/HTSlib 1.23.1 or newer under the
+  validated deployment contract.
+
 ## [0.1.0rc3] - 2026-08-28
 
 This release candidate contains only the independently Linux-validated Phase 9

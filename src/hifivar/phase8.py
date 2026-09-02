@@ -27,6 +27,8 @@ class Phase8Settings:
     pav_executable: str
     pav_snakefile: Path
     pav_version: str
+    pav_bgzip_executable: str
+    pav_tabix_executable: str
     pav_resources: AssemblySvResources
     svim_enabled: bool
     svim_executable: str
@@ -45,6 +47,8 @@ class Phase8Settings:
             return cls(
                 bool(section["overwrite"]), bool(pav["enabled"]), str(pav["executable"]),
                 Path(str(pav["snakefile"])), str(pav["version"]),
+                str(pav.get("bgzip_executable", "bgzip")),
+                str(pav.get("tabix_executable", "tabix")),
                 AssemblySvResources(int(pav["threads"]), int(pav["memory_mb"]), int(pav["runtime_minutes"])),
                 bool(svim["enabled"]), str(svim["executable"]), str(svim["minimap2_executable"]),
                 str(svim["samtools_executable"]), str(svim["bgzip_executable"]),
@@ -59,6 +63,8 @@ class Phase8Settings:
             "overwrite": self.overwrite,
             "pav": {"enabled": self.pav_enabled, "executable": self.pav_executable,
                     "snakefile": str(self.pav_snakefile), "version": self.pav_version,
+                    "bgzip_executable": self.pav_bgzip_executable,
+                    "tabix_executable": self.pav_tabix_executable,
                     "resources": self.pav_resources.to_dict()},
             "svim_asm": {"enabled": self.svim_enabled, "executable": self.svim_executable,
                          "minimap2_executable": self.minimap2_executable,
@@ -130,6 +136,8 @@ def run_phase8(
     work_root = Path(work_directory)
     pav_engine = pav_wrapper or PavWrapper(
         snakefile=settings.pav_snakefile, executable=settings.pav_executable,
+        bgzip_executable=settings.pav_bgzip_executable,
+        tabix_executable=settings.pav_tabix_executable,
         pav_version=settings.pav_version,
     )
     svim_engine = svim_wrapper or SvimAsmWrapper(
