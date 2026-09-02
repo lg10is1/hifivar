@@ -1,5 +1,9 @@
 # Linux/HPC execution
 
+For end-to-end Chinese instructions, see the
+[single-sample Bash guide](zh_CN/single_sample_bash.md) and
+[multi-sample Slurm guide](zh_CN/slurm_multi_sample.md).
+
 Linux/HPC is the production platform. The recommended deployment is a Conda or
 virtual-environment HiFiVar core plus tool-specific Conda environments and
 Apptainer images.

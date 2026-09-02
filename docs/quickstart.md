@@ -1,82 +1,122 @@
-# Quick start
+# HiFiVar 0.1.0rc4 complete quick start
 
-This guide exercises the public `0.1.0rc2` contract on Linux. Use a tiny test
-dataset before chromosome- or whole-genome-scale execution.
+[English](quickstart.md) | [简体中文](zh_CN/quickstart.md)
 
-## 1. Install the core
+This guide covers installation, configuration, dry-run, single-sample and
+multi-sample execution on Linux/HPC. Start with tiny data before chromosome- or
+whole-genome-scale execution.
 
-From a release wheel:
+## 1. Current execution and FASTQ boundary
+
+HiFiVar is a core workflow plus separately deployed scientific tools. The wheel
+does not bundle callers, references, databases, catalogs, truth sets or WGS
+data. The packaged small-variant, read-SV and TR workflows consume an existing
+indexed BAM/CRAM. The Python API supports pbmm2 alignment planning/execution,
+but `0.1.0rc4` has no unified `hifivar run` command and no packaged Snakemake
+alignment rule. A raw FASTQ/uBAM therefore needs an explicit upstream alignment
+step. FASTQ is also the input boundary for the separate hifiasm assembly branch.
+
+## 2. Install and verify the release
+
+Download all three assets from the
+[`v0.1.0-rc4` release](https://github.com/lg10is1/hifivar/releases/tag/v0.1.0-rc4):
 
 ```bash
+curl -fLO https://github.com/lg10is1/hifivar/releases/download/v0.1.0-rc4/hifivar-0.1.0rc4-py3-none-any.whl
+curl -fLO https://github.com/lg10is1/hifivar/releases/download/v0.1.0-rc4/hifivar-0.1.0rc4.tar.gz
+curl -fLO https://github.com/lg10is1/hifivar/releases/download/v0.1.0-rc4/SHA256SUMS
+sha256sum -c SHA256SUMS
+
 python3 -m venv hifivar-env
 source hifivar-env/bin/activate
 python -m pip install --upgrade pip
-python -m pip install './hifivar-0.1.0rc2-py3-none-any.whl[workflow]'
+python -m pip install './hifivar-0.1.0rc4-py3-none-any.whl[workflow]'
+
 hifivar --version
+hifivar --help
+hifivar config validate
+hifivar doctor
 ```
 
-External callers are installed separately. Enable only branches whose tools,
-versions, references and databases have been provisioned.
+The expected version is `hifivar 0.1.0rc4`. HiFiVar is not yet published to
+PyPI, Bioconda or conda-forge; use the GitHub Release assets or a tagged source
+checkout. See [Installation](installation.md) for source and Conda options.
 
-## 2. Prepare the reference
+## 3. Create a project directory
 
-The primary reference is an uncompressed FASTA with an existing `.fai` index.
-The configured build is explicit; HiFiVar does not infer or rename contigs.
+```text
+analysis/
+├── config.yaml
+├── effective_config.yaml
+├── samples.tsv
+├── references/
+├── containers/
+├── databases/
+├── work/
+├── results/
+└── logs/
+```
+
+Keep original reads and alignments outside disposable `work/` directories.
+
+## 4. Prepare the reference
+
+Use an uncompressed FASTA with an existing `.fai` index and an explicit build.
+HiFiVar never silently converts `chr1` to `1` or vice versa.
 
 ```bash
 samtools faidx /data/reference/GRCh38.fa
 ```
 
-Caller-specific dictionaries and indexes remain owned by their deployment.
+Confirm that the BAM/CRAM, reference, catalogs and downstream resources use the
+same build and contig naming. Caller-specific dictionaries and indexes remain
+owned by their deployments.
 
-## 3. Prepare an existing-alignment sample sheet
+## 5. Prepare the sample sheet
 
 Create a UTF-8 tab-separated `samples.tsv`:
 
 ```text
 sample_id	input	input_type	sex
-HG002	/data/alignments/HG002.bam	bam	male
+SAMPLE01	/data/alignments/SAMPLE01.bam	bam	unknown
+SAMPLE02	/data/alignments/SAMPLE02.cram	cram	unknown
 ```
 
-The BAM must be non-empty, coordinate sorted for callers that require it, and
-indexed as `/data/alignments/HG002.bam.bai` or a supported alternative. CRAM
-requires its matching reference and CRAI. Sample IDs should be ASCII-safe.
+Each BAM must be non-empty, coordinate sorted where required and indexed. CRAM
+requires its matching reference and CRAI. Input sample identity, read groups and
+reference compatibility must be checked before expensive callers are enabled.
 
-## 4. Create a user config
+For raw HiFi data, align and index first. Do not label an unaligned PacBio uBAM
+as a reusable aligned BAM. For assembly, derive or provide HiFi FASTQ explicitly.
 
-Copy `examples/minimal/config.yaml` and replace every example `/data/...` and
-`/work/...` path with locations valid on your system. The example enables no
-biological caller by default, so it is safe for config and DAG validation.
+## 6. Create and validate the configuration
+
+From a source checkout, copy the minimal example. From an installed wheel, use
+it as a schema reference and create equivalent local files.
 
 ```bash
 cp examples/minimal/config.yaml config.yaml
 cp examples/minimal/samples.tsv samples.tsv
 ```
 
-Global CLI options precede the subcommand:
+Replace every example `/data/...` and `/work/...` path with a location valid on
+your system. The minimal example enables no biological caller by default and is
+safe for validation. Global CLI options precede the subcommand:
 
 ```bash
 hifivar --config config.yaml config validate
 hifivar --config config.yaml config dump-effective --output effective_config.yaml
 ```
 
-## 5. Inspect the DAG
+Review `effective_config.yaml`; archive it with the run. Never put passwords,
+tokens or credentials in the config.
 
-For a source checkout:
-
-```bash
-snakemake \
-  --snakefile workflow/Snakefile \
-  --configfile effective_config.yaml \
-  --cores 1 \
-  --dry-run \
-  --printshellcmds
-```
-
-For a wheel/Conda installation:
+## 7. Discover and dry-run the packaged workflow
 
 ```bash
 WORKFLOW_ROOT="$(python -c 'from hifivar.package_resources import installed_workflow_root; print(installed_workflow_root())')"
+test -f "$WORKFLOW_ROOT/Snakefile"
+
 snakemake \
   --snakefile "$WORKFLOW_ROOT/Snakefile" \
   --configfile effective_config.yaml \
@@ -85,39 +125,30 @@ snakemake \
   --printshellcmds
 ```
 
-## 6. Enable one branch at a time
+A successful infrastructure dry-run does not prove that an external caller is
+installed or scientifically configured.
 
-After installing and validating the corresponding external tool, change the
-relevant config flag, regenerate `effective_config.yaml`, and repeat dry-run.
+## 8. Enable branches incrementally
 
-Examples:
+Provision and verify only the tools needed by a branch, using the pinned
+[deployment matrix](deployment.md). Do not replace a validated version with
+`latest`. Enable one branch, regenerate the effective config, and dry-run again.
 
-```yaml
-small:
-  enabled: true
-  execution_mode: apptainer
-  deepvariant_image: /containers/deepvariant_1.10.0.sif
-```
+Typical artifact families remain separate:
 
-```yaml
-sv:
-  enabled: true
-  sawfish:
-    enabled: true
-  sniffles2:
-    enabled: false
-  pbsv:
-    enabled: false
-  cutesv:
-    enabled: false
-```
+- DeepVariant: `results/small/<sample>.small.vcf.gz` and gVCF;
+- read-based SV: caller-specific VCFs plus harmonized evidence;
+- TRGT: `results/tr/<sample>.tr.vcf.gz`;
+- assembly: hifiasm outputs, then PAV/SVIM-asm artifacts;
+- cohort: GLnexus small-variant output and separate SV/TR cohort tables;
+- review, annotation, benchmark and report: optional downstream branches.
 
-Do not enable every branch merely because it exists. Each enabled branch must
-have its own validated runtime, resource limits and scientific inputs.
+Caller support counts, harmonization, manual review and annotation impact are
+evidence metadata, not truth, confidence or clinical pathogenicity.
 
-## 7. Execute
+## 9. Execute one sample with Bash
 
-Use an HPC profile or explicit local resources. A minimal local invocation is:
+After a successful dry-run:
 
 ```bash
 snakemake \
@@ -128,12 +159,48 @@ snakemake \
   --rerun-incomplete
 ```
 
-Do not use `--keep-going` until partial-track behavior is understood. Never
-delete original FASTQ/BAM/CRAM/VCF files to recover a failed workflow.
+Use a data-disk `runtime.tmpdir`. DeepVariant temporary files are isolated under
+`<tmp-root>/deepvariant/<sample>/tmp`. A file-descriptor limit of at least 4096
+is required; 65536 is recommended where site policy permits. See the
+[Chinese single-sample Bash guide](zh_CN/single_sample_bash.md) for a detailed
+operational template.
 
-## FASTQ boundary
+## 10. Execute multiple samples on Slurm
 
-`0.1.0rc2` provides pbmm2 alignment through the Python Phase 2 API, but the
-packaged DAG does not yet contain an alignment rule. For the public Snakemake
-quick start, use an existing indexed BAM/CRAM. FASTQ remains valid for the
-separate hifiasm assembly branch. A unified FASTQ-to-calling CLI is future work.
+First prove the DAG locally, then use a site-approved Snakemake profile:
+
+```bash
+snakemake \
+  --snakefile "$WORKFLOW_ROOT/Snakefile" \
+  --configfile effective_config.yaml \
+  --profile /path/to/site-profile \
+  --rerun-incomplete \
+  --printshellcmds
+```
+
+The profile must map `threads`, `mem_mb` and `runtime_min`. DeepVariant sample
+concurrency is controlled by `small.max_concurrent_samples`; increase it only
+after tiny tests prove isolated temporary directories and adequate resources.
+GLnexus memory must be explicitly sized for the cohort. See
+[Multi-sample execution with Slurm](slurm_multi_sample.md) and the
+[Chinese Slurm guide](zh_CN/slurm_multi_sample.md).
+
+## 11. Monitor, restart and inspect outputs
+
+- preserve complete stdout/stderr and the effective config;
+- use `--rerun-incomplete` after diagnosing a failure;
+- do not delete original FASTQ/BAM/CRAM/VCF files;
+- do not use `--keep-going` until partial-track behavior is understood;
+- validate BGZF/TBI, sample names, contigs and expected output contracts;
+- archive tool versions, container digests, reference checksums and Git SHA.
+
+See [Outputs](outputs.md), [Troubleshooting](troubleshooting.md) and
+[Linux/HPC execution](linux_hpc.md).
+
+## 12. What is and is not validated
+
+`0.1.0rc4` package installation, packaged resources, Snakemake regressions and
+selected real Linux/HPC tool paths have passed release validation. A new site,
+reference, container, database or scheduler configuration still requires its
+own tiny real-tool validation before WGS execution. The software is for research
+use and does not provide clinical interpretation.

@@ -1,5 +1,7 @@
 # Installation
 
+[English](installation.md) | [简体中文](zh_CN/installation.md)
+
 HiFiVar targets Linux/HPC for production. Windows supports Python, config,
 packaging, fake/mock tests and Snakemake dry-run, but not the formal real-tool
 workflow.
@@ -15,7 +17,17 @@ External tools and scientific databases are provisioned separately using
 
 ## GitHub release wheel
 
-Download both release artifacts and published SHA256 checksums. Then:
+Download both release artifacts and the published SHA256 checksums from the
+[`v0.1.0-rc4` release](https://github.com/lg10is1/hifivar/releases/tag/v0.1.0-rc4):
+
+```bash
+curl -fLO https://github.com/lg10is1/hifivar/releases/download/v0.1.0-rc4/hifivar-0.1.0rc4-py3-none-any.whl
+curl -fLO https://github.com/lg10is1/hifivar/releases/download/v0.1.0-rc4/hifivar-0.1.0rc4.tar.gz
+curl -fLO https://github.com/lg10is1/hifivar/releases/download/v0.1.0-rc4/SHA256SUMS
+sha256sum -c SHA256SUMS
+```
+
+Install the verified wheel:
 
 ```bash
 python3 -m venv hifivar-env
@@ -28,6 +40,7 @@ The expected artifacts are:
 
 - `hifivar-0.1.0rc4-py3-none-any.whl`
 - `hifivar-0.1.0rc4.tar.gz`
+- `SHA256SUMS`
 
 The project is not yet on PyPI. Do not use `pip install hifivar` until a
 separate PyPI publication has been completed and verified.

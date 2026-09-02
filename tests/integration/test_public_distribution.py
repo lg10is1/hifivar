@@ -96,15 +96,23 @@ def test_minimal_example_is_safe_and_caller_disabled() -> None:
 
 def test_public_docs_disclose_execution_and_container_boundaries() -> None:
     readme = _text("README.md")
+    readme_zh = _text("README.zh-CN.md")
     quickstart = _text("docs/quickstart.md")
+    quickstart_zh = _text("docs/zh_CN/quickstart.md")
+    installation_zh = _text("docs/zh_CN/installation.md")
     containers = _text("docs/containers.md")
 
+    assert "0.1.0rc4" in readme
+    assert "0.1.0rc4" in readme_zh
+    assert "[简体中文](README.zh-CN.md)" in readme
     assert "does not yet expose one unified `hifivar run`" in readme
     assert "consume an existing indexed" in readme
     assert "BAM/CRAM" in readme
     assert "FASTQ boundary" in quickstart
     assert "`/data/...` and" in quickstart
     assert "`/work/...` path" in quickstart
+    assert "没有统一的 `hifivar run`" in quickstart_zh
+    assert "0.1.0rc4" in installation_zh
     assert "does not contain PAV, DeepVariant" in containers
 
 

@@ -1,5 +1,7 @@
 # HiFiVar
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 HiFiVar is a modular, reproducible workflow framework for PacBio HiFi
 whole-genome variant analysis. It orchestrates established bioinformatics
 tools; it does not replace their calling algorithms.
@@ -47,6 +49,10 @@ dry-run layers, but not the formal external-tool production workflow.
 ### GitHub release wheel
 
 ```bash
+curl -fLO https://github.com/lg10is1/hifivar/releases/download/v0.1.0-rc4/hifivar-0.1.0rc4-py3-none-any.whl
+curl -fLO https://github.com/lg10is1/hifivar/releases/download/v0.1.0-rc4/hifivar-0.1.0rc4.tar.gz
+curl -fLO https://github.com/lg10is1/hifivar/releases/download/v0.1.0-rc4/SHA256SUMS
+sha256sum -c SHA256SUMS
 python3 -m venv hifivar-env
 source hifivar-env/bin/activate
 python -m pip install --upgrade pip
@@ -112,7 +118,8 @@ This smoke test does not call a biological tool.
 
 ## Start a real analysis
 
-1. Read [the quick start](docs/quickstart.md).
+1. Read the [complete English quick start](docs/quickstart.md) or
+   [完整中文快速入门](docs/zh_CN/quickstart.md).
 2. Copy and edit [the minimal example](examples/minimal/README.md).
 3. Provision only the external tools needed by enabled branches using the
    [deployment matrix](docs/deployment.md).
@@ -126,6 +133,7 @@ with biological truth or pathogenicity.
 ## Distribution options
 
 - [Installation methods](docs/installation.md)
+- [中文安装指南](docs/zh_CN/installation.md)
 - [Conda, Docker and Apptainer](docs/containers.md)
 - [Linux/HPC execution](docs/linux_hpc.md)
 - [Multi-sample execution with Slurm](docs/slurm_multi_sample.md)
