@@ -1,6 +1,7 @@
 # Phase 13 — Benchmark / Truth-set Evaluation
 
-Status: implementation complete; Linux/HPC real-tool validation pending.
+Status: implementation complete; Linux/HPC real-tool validation complete for
+the validated hap.py, Truvari, and TR comparison boundaries.
 
 ## Scope and scientific contract
 
@@ -39,8 +40,8 @@ observed gzip contract; `metrics_compression: plain` retains explicit support
 for a legitimate uncompressed installation.
 
 Production target: hap.py 0.3.15. Linux confirmed the empty version output and
-gzip artifact behavior; the remediation remains pending a real delta rerun.
-`HAPPY_LINUX_REAL_VERIFICATION: FIXED_PENDING_LINUX_REVALIDATION`.
+gzip artifact behavior, and the remediation passed real delta revalidation.
+`HAPPY_LINUX_REAL_VERIFICATION: PASS`.
 
 ## SV and assembly-SV: Truvari
 
@@ -59,7 +60,9 @@ applicable. Region classes are evaluated by separate, explicitly configured
 Truvari runs. Assembly-derived VCFs use the same engine but retain the distinct
 `assembly_sv` variant class and provenance.
 
-`TRUVARI_PHASE13_LINUX_REAL_VERIFICATION: NOT_RUN`.
+`TRUVARI_PHASE13_LINUX_REAL_VERIFICATION: PASS` for the explicitly documented
+truth, region, and threshold contracts. Public performance claims remain
+restricted to the validated benchmark scopes.
 
 ## Tandem repeats
 
@@ -90,7 +93,7 @@ review, annotation, or cohort outputs.
   forced into a size bin.
 - TR allele comparison supports explicit TRGT `AL` (with `MC` fallback) and GT;
   richer motif/methylation comparison remains future work.
-- Phase 14 reporting is not started.
+- Phase 14 reporting and release hardening are complete.
 
 ## Definition of Done
 
@@ -100,4 +103,5 @@ review, annotation, or cohort outputs.
 - TR and assembly-SV boundaries: complete
 - independent Snakemake tracks: complete
 - unit/fake integration/full regression/build: see validation handoff
-- Linux/HPC real-tool verification: pending independent validation
+- Linux/HPC real-tool verification: complete for the documented validation
+  scopes; see `docs/benchmarking.md` and `docs/reproducibility.md`

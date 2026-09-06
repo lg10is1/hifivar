@@ -1,0 +1,66 @@
+schema_version: "1.0"
+profile: nature_family
+publication_geometry:
+  single_column_width_mm: 89
+  double_column_width_mm: 183
+  maximum_height_mm: 170
+  raster_dpi: 300
+  colour_space: RGB
+typography:
+  family:
+    - Arial
+    - Helvetica
+    - DejaVu Sans
+  body_pt: 6.5
+  minimum_pt: 5
+  maximum_pt: 7
+  panel_label_pt: 8
+  panel_label_weight: bold
+lines:
+  minimum_pt: 0.5
+  axis_pt: 0.6
+  data_pt: 1.0
+  tick_direction: out
+palette:
+  blue: "#0072B2"
+  orange: "#E69F00"
+  bluish_green: "#009E73"
+  vermillion: "#D55E00"
+  sky_blue: "#56B4E9"
+  reddish_purple: "#CC79A7"
+  yellow: "#F0E442"
+  black: "#000000"
+  dark_gray: "#4D4D4D"
+  mid_gray: "#999999"
+  light_gray: "#D9D9D9"
+semantic_colours:
+  precision: blue
+  recall: bluish_green
+  f1: orange
+  genotype_concordance: reddish_purple
+  true_positive: blue
+  false_positive: vermillion
+  false_negative: mid_gray
+  warning: orange
+  uncertainty: mid_gray
+  disabled: light_gray
+export:
+  manuscript_master:
+    - PDF
+    - SVG
+  review_derivative:
+    - PNG
+  pdf_font_type: 42
+  svg_text_editable: true
+accessibility:
+  forbid_red_green_only_contrast: true
+  require_redundant_encoding: true
+  require_grayscale_check: true
+  background: "#FFFFFF"
+prohibited:
+  - background_gridlines
+  - three_dimensional_effects
+  - drop_shadows
+  - decorative_gradients
+  - invented_error_bars
+  - truncated_bar_axis

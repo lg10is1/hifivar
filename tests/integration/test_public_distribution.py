@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import tomllib
 from pathlib import Path
 
@@ -13,6 +14,15 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def _text(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
+
+
+def _load_public_audit_module():
+    script = ROOT / "scripts" / "audit_public_release.py"
+    spec = importlib.util.spec_from_file_location("audit_public_release", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_public_license_and_python_metadata_are_consistent() -> None:
@@ -35,7 +45,7 @@ def test_conda_core_definitions_are_bounded_and_non_monolithic() -> None:
     assert environment["name"] == "hifivar"
     assert "python=3.12" in dependencies
     assert "snakemake-minimal>=8,<10" in dependencies
-    assert "version = \"0.1.0rc2\"" in recipe
+    assert "version = \"0.1.0rc4\"" in recipe
     assert "noarch: python" in recipe
     assert "license: Apache-2.0" in recipe
     assert "deepvariant" not in recipe.lower()
@@ -136,3 +146,38 @@ def test_distribution_ci_uses_current_node24_actions() -> None:
     assert "actions/setup-python@v7" in distribution
     assert "actions/checkout@v4" not in distribution
     assert "actions/setup-python@v5" not in distribution
+
+
+def test_public_audit_ignores_named_local_virtual_environments(tmp_path: Path) -> None:
+    audit_module = _load_public_audit_module()
+    local_environment = tmp_path / ".venv-validation" / "Lib" / "site-packages"
+    local_environment.mkdir(parents=True)
+    private_cache_text = "maintainer" + "@" + "example.org\n" + "C:" + "\\Users\\My\\local-only-cache\n"
+    (local_environment / "third_party_metadata.txt").write_text(
+        private_cache_text,
+        encoding="utf-8",
+    )
+    (tmp_path / "README.md").write_text("Public project documentation.\n", encoding="utf-8")
+
+    assert audit_module.audit(tmp_path, max_bytes=1024 * 1024) == []
+
+
+def test_publication_visuals_follow_shared_nature_profile() -> None:
+    rules = _text("PROJECT_VISUAL_RULES.md")
+    style = yaml.safe_load(_text("project_visuals/visual_style.yaml"))
+    plotting = _text("project_visuals/scripts/plot_hg002_benchmarks.py")
+
+    assert style["profile"] == "nature_family"
+    assert style["publication_geometry"]["single_column_width_mm"] == 89
+    assert style["publication_geometry"]["double_column_width_mm"] == 183
+    assert style["typography"]["minimum_pt"] == 5
+    assert style["typography"]["maximum_pt"] == 7
+    assert style["lines"]["minimum_pt"] >= 0.5
+    assert style["accessibility"]["forbid_red_green_only_contrast"] is True
+    assert "invented_error_bars" in style["prohibited"]
+    assert "truncated_bar_axis" in style["prohibited"]
+    assert "Nature-family production target" in rules
+    assert "#0072B2" in plotting
+    assert "#009E73" in plotting
+    assert "'pdf.fonttype': 42" in plotting
+    assert ".grid(" not in plotting

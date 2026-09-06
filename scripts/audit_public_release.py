@@ -63,6 +63,16 @@ TEXT_SUFFIXES = {
 }
 
 
+def _is_generated_part(part: str) -> bool:
+    """Return whether *part* belongs to generated or local-only content."""
+
+    return (
+        part in GENERATED_PARTS
+        or part.startswith(".venv-")
+        or part.endswith(".egg-info")
+    )
+
+
 def audit(root: Path, max_bytes: int) -> list[str]:
     """Return public-release hygiene findings for *root*."""
 
@@ -70,10 +80,10 @@ def audit(root: Path, max_bytes: int) -> list[str]:
     audit_script = Path(__file__).resolve()
     for path in sorted(root.rglob("*")):
         relative = path.relative_to(root)
+        if any(_is_generated_part(part) for part in relative.parts):
+            continue
         if NAME_PATTERN.search(relative.as_posix()):
             findings.append(f"suspicious filename: {relative}")
-        if any(part in GENERATED_PARTS for part in relative.parts):
-            continue
         if not path.is_file():
             continue
         size = path.stat().st_size
@@ -163,10 +173,7 @@ def compare_production_trees(root: Path, reference_root: Path) -> list[str]:
         return (
             path.is_file()
             and path.suffix.lower() not in {".pyc", ".pyo"}
-            and not any(
-                part in GENERATED_PARTS or part.endswith(".egg-info")
-                for part in path.parts
-            )
+            and not any(_is_generated_part(part) for part in path.parts)
         )
 
     def normalized_content(path: Path) -> bytes:

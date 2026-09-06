@@ -12,6 +12,7 @@ htmlcov/
 dist/
 build/
 .venv/
+.venv-*/
 venv/
 
 # Local environment and secrets

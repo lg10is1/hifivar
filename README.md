@@ -144,6 +144,55 @@ with biological truth or pathogenicity.
 - [Troubleshooting](docs/troubleshooting.md)
 - [Validated deployment matrix](docs/deployment.md)
 - [Public distribution validation](docs/distribution_validation.md)
+- [Current project status and validated boundaries](docs/project_status.md)
+- [Scientific figure and visual integrity rules](PROJECT_VISUAL_RULES.md)
+
+## Verified benchmarks (HG002)
+
+HiFiVar 0.1.0rc4 has been validated on the GIAB HG002 sample using PacBio
+HiFi CCS 11kb data against GRCh38.
+
+**Small-variant benchmark** (chr1–22 confident regions, DeepVariant 1.10.0 +
+hap.py 0.3.15):
+
+| Variant class | Precision | Recall | F1 |
+|---------------|-----------|--------|-----|
+| SNP | 0.995444 | 0.977927 | 0.986608 |
+| INDEL | 0.916605 | 0.893150 | 0.904726 |
+
+**Read-SV benchmark** (CMRG GRCh38 v1.00 challenging medically relevant
+genes, Truvari v5.4.0):
+
+| Caller | Precision | Recall | F1 |
+|--------|-----------|--------|-----|
+| Sawfish 2.2.1 | 1.000 | 0.907 | 0.951 |
+| Sniffles2 2.8.0 | 0.958 | 0.741 | 0.836 |
+| pbsv 2.11.0 | 0.816 | 0.657 | 0.728 |
+| cuteSV 2.1.4 | 0.919 | 0.157 | 0.269 |
+
+CMRG results cover challenging medically relevant genes only and are **not**
+whole-genome SV performance. All metrics are configuration- and
+dataset-specific. See [Benchmarking](docs/benchmarking.md) for full details,
+[Known Limitations](docs/known_limitations.md) for limitations, and
+[Reproducibility](docs/reproducibility.md) for verification steps.
+
+### Reproducing benchmark figures
+
+The public repository includes the frozen summary tables, shared Nature-family
+visual style, and plotting code, but does not version manuscript drafts or
+generated figure binaries. This keeps the repository reviewable while allowing
+every figure to be regenerated locally:
+
+```bash
+python -m pip install pandas matplotlib pyyaml
+python project_visuals/scripts/plot_hg002_benchmarks.py
+```
+
+Generated SVG, PDF, and 300-dpi PNG files are written under
+`project_visuals/figures/benchmark/`. SVG/PDF are the editable masters; PNG is
+a review and README derivative. See
+[Scientific Figure Rules](PROJECT_VISUAL_RULES.md) for the colour, typography,
+scope, provenance, and journal-export requirements.
 
 ## Development
 

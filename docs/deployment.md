@@ -1,7 +1,7 @@
 # Validated deployment matrix
 
-This matrix records evidence available in the repository as of Phase 14. A
-wrapper/mock PASS is not represented as a real-tool PASS. Site paths, images,
+This matrix records evidence available through the 0.1.0rc4 validation cycle.
+A wrapper/mock PASS is not represented as a real-tool PASS. Site paths, images,
 databases and credentials stay outside the Python package.
 
 | Component | Version/backend | Evidence status | Production contract |
@@ -20,7 +20,7 @@ databases and credentials stay outside the Python package.
 
 | Distribution | Identity | Status |
 |---|---|---|
-| Python wheel/sdist | `0.1.0rc2` | Windows clean-install PASS; Linux release-candidate wheel PASS before this distribution delta. |
+| Python wheel/sdist | `0.1.0rc4` | Windows and independent Linux clean-install, metadata, packaged-resource, content, and security audits PASS. |
 | Conda source environment/recipe | repository `environment.yml` / `conda-recipe` | `LINUX_REAL_VERIFICATION: NOT_RUN` |
 | Docker core | repository `Dockerfile`, `python:3.12-slim-bookworm` base | `LINUX_REAL_VERIFICATION: NOT_RUN` |
 | Apptainer core | repository `containers/hifivar.def`, `python:3.12-slim-bookworm` base | `LINUX_REAL_VERIFICATION: NOT_RUN` |

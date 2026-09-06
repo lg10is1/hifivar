@@ -1,0 +1,5 @@
+caller	version	tp	fp	fn	precision	recall	f1	gt_concordance
+Sawfish	2.2.1	196	0	20	1.000	0.907	0.951	0.944
+Sniffles2	2.8.0	160	7	56	0.958	0.741	0.836	0.875
+pbsv	2.11.0	142	32	74	0.816	0.657	0.728	0.873
+cuteSV	2.1.4	34	3	182	0.919	0.157	0.269	0.882

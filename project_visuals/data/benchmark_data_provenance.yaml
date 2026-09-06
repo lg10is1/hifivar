@@ -1,0 +1,49 @@
+# Benchmark Data Provenance
+
+## Small-variant benchmark
+
+| Item | Value |
+|------|-------|
+| Sample | GIAB HG002 |
+| Data | PacBio HiFi CCS 11kb |
+| Reference | GRCh38 (human_GRCh38_no_alt_analysis_set) |
+| Reference SHA256 | 9cce8b926416dd96b152deea85188495b75f7ac8d634cc723a017067be8702b7 |
+| Caller | DeepVariant 1.10.0 (PACBIO model) |
+| Benchmark tool | hap.py 0.3.15 |
+| Scope | chr1–chr22 confident regions |
+| Truth | GIAB/NIST HG002 NISTv4.2.1 |
+
+## Read-SV benchmark
+
+| Item | Value |
+|------|-------|
+| Sample | GIAB HG002 |
+| Data | PacBio HiFi CCS 11kb |
+| Reference | GRCh38 (human_GRCh38_no_alt_analysis_set) |
+| Reference SHA256 | 9cce8b926416dd96b152deea85188495b75f7ac8d634cc723a017067be8702b7 |
+| Truth | GIAB CMRG GRCh38 v1.00 StructuralVariant |
+| Truth SHA256 | 2e4a21556689935556c8943bd8995af3f1173a39f7a51417921a99641a19e3090 |
+| Truth records | 250 total, 216 eligible (>= 50bp) |
+| Benchmark tool | Truvari v5.4.0 |
+| Scope | Challenging medically relevant genes only |
+
+## Tool versions
+
+| Tool | Version |
+|------|---------|
+| DeepVariant | 1.10.0 |
+| hap.py | 0.3.15 |
+| Truvari | v5.4.0 |
+| Sawfish | 2.2.1 |
+| Sniffles2 | 2.8.0 |
+| pbsv | 2.11.0 |
+| cuteSV | 2.1.4 |
+
+## Frozen evidence
+
+| File | SHA256 |
+|------|--------|
+| HG002_BENCHMARK_FROZEN_SUMMARY.tsv | a12ca396f895a048ee6ef253297e91f968bf07e6f2070b2751b9013d53a067ec |
+| HG002_BENCHMARK_FROZEN_METADATA.yaml | 54599c5c6c67d618f4af85d3c966a05a9b23a68477840aa9a42f46fd88403dc0 |
+| HG002_BENCHMARK_FROZEN_CHECKSUMS.sha256 | 0a4c82274b5417cf94f44d09c3b49cf23e21441d6e5d81d3a7f6e02fae23a1e3 |
+| HG002_BENCHMARK_INTERPRETATION.md | 57f23ab72a41c2c02d5c90d19cf30228b09e27f44bf067c52bf9e0aa75d73ad6 |

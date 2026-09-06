@@ -1,6 +1,7 @@
 # Phase 14 — Reporting, packaging, release and CI hardening
 
-Status: implementation complete; independent Linux release validation pending.
+Status: implementation complete; HiFiVar 0.1.0rc4 independent Linux release
+validation complete.
 
 ## Final reporting
 
@@ -45,7 +46,7 @@ Heavy real tools and WGS data remain a separate Linux/HPC release gate.
 
 ## Release and security boundaries
 
-- Version remains `0.0.1.dev0`; `0.1.0` is only a future candidate.
+- Current validated release candidate: `0.1.0rc4`.
 - No PyPI/GitHub/container publication, commit, tag or push is automatic.
 - Wheel tests reject known local private paths and verify necessary resources.
 - Audit evidence, credentials, keys, SIFs, logs, caches and raw genomic data
@@ -54,10 +55,13 @@ Heavy real tools and WGS data remain a separate Linux/HPC release gate.
 
 ## Known limitations
 
-- Phase 13 hap.py/Truvari real benchmark is pending Linux validation.
+- Phase 13 hap.py/Truvari Linux validation and the documented HG002 benchmark
+  scopes are complete.
 - VEP remains environment-blocked; ANNOVAR has real evidence.
 - Final reports summarize supplied phase records; they do not rediscover every
   artifact from an arbitrary directory or infer scientific success from file existence.
 - HTML is deliberately static and contains no interactive/external assets.
 
-Phase 15 is not started.
+No Phase 15 implementation is defined or started. Future feature development
+must use an explicitly approved roadmap rather than infer a phase from missing
+files.
