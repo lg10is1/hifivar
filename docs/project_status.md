@@ -1,13 +1,13 @@
 # HiFiVar Project Status
 
-Status date: 2026-09-06  
+Status date: 2026-09-09  
 Current release candidate: `0.1.0rc4`  
 Production platform: Linux/HPC  
 License: Apache-2.0
 
 ## Current boundary
 
-HiFiVar implements the Phase 0–14 modular contracts for configuration,
+HiFiVar implements the Phase 0–15 modular contracts for configuration,
 provenance, QC, alignment, small variants, read- and assembly-based structural
 variants, tandem repeats, phasing, harmonization, manual review, annotation,
 cohort analysis, benchmarking, and reporting. External bioinformatics tools
@@ -31,6 +31,11 @@ described as a one-command raw-read workflow.
 - VEP remains environment-blocked for real execution; AlphaGenome is an
   explicit selected-candidate interface rather than a validated production
   backend.
+- Phase 15 checkpoint: branch `codex/phase15-checkpoint` at commit `4476702`
+  (18 files, +2,482 lines). Windows pytest: 29 passed, 3 skipped; compileall:
+  0 errors. The 4 skipped integration tests require Snakemake which is not
+  installed in the `rc4_wheel` test environment. Linux Snakemake dry-run and
+  full matrix execution remain required gates.
 
 ## Frozen public benchmark scopes
 
@@ -47,8 +52,13 @@ genes only. CMRG values are not whole-genome SV performance. See
 3. No production minimap2 wrapper equivalent to the validated pbmm2 path.
 4. Cross-sample SV clustering is intentionally unsupported.
 5. VEP and AlphaGenome lack real production-backend validation.
-6. Low-depth optimization and PCR/primer-design validation are future research
-   extensions, not 0.1.0rc4 capabilities.
+6. Phase 15 now provides aligned-BAM engineering subsampling and raw-FASTQ
+   molecule-level nested materialization. A 4-depth × 3-replicate matrix
+   (5×/10×/15×/20×, seeds 1729–1732) has been launched on Linux/HPC for
+   HG002 PacBio HiFi CCS 11 kb chr21 raw FASTQ → pbmm2 → DeepVariant →
+   hap.py. No minimum depth or optimized profile is scientifically validated
+   or part of 0.1.0rc4. PCR/primer-design validation remains a future
+   research extension.
 7. Core Docker/Apptainer and Conda distribution claims remain separate from
    tool-specific real validation and must not be overstated.
 
@@ -65,8 +75,10 @@ explicit later validation record.
    figure materials without private evidence or local environments.
 2. Start a separately versioned development line for unified execution and
    uBAM/FASTQ alignment integration.
-3. Add a preregistered, replicated low-depth HiFi benchmark; do not hard-code a
-   universal minimum coverage before the data support it.
+3. Execute the preregistered Phase 15 matrix on Linux/HPC and independent GIAB
+   data; do not publish a universal minimum coverage before the data support it.
+   The HG002 CCS 11 kb matrix is currently running (checkpoint branch
+   `codex/phase15-checkpoint`, commit `4476702`).
 4. Add an optional IGV-to-PCR evidence branch with at least three in-silico
    primer candidates, explicit specificity checks, predicted allele products,
    and independent wet-lab result records.
