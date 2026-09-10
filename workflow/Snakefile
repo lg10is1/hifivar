@@ -15,6 +15,7 @@ include: "rules/review.smk"
 include: "rules/annotation.smk"
 include: "rules/cohort.smk"
 include: "rules/benchmark.smk"
+include: "rules/low_depth.smk"
 rule all:
     input:
         WORKFLOW_TARGETS

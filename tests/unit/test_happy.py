@@ -114,6 +114,24 @@ def test_explicit_version_fallback_is_recorded_in_provenance(
     assert result.to_dict()["version_source"] == "config"
 
 
+def test_benchmark_local_executable_shim_is_used_for_version_and_run(
+    tmp_path: Path,
+) -> None:
+    item = request(tmp_path)
+    executable = tmp_path / "benchmark tools" / "hap.py-wrapper"
+    runner = Runner(item, version_output="", metrics_compression="gzip")
+    wrapper = HappyWrapper(
+        executable=executable, configured_version="0.3.15", runner=runner,
+    )
+
+    result = wrapper.run(item)
+
+    assert result.version == "0.3.15"
+    assert result.version_source == "config"
+    assert runner.calls[0][0] == (str(executable), "--version")
+    assert runner.calls[1][0][0] == str(executable)
+
+
 def test_configured_version_must_be_an_explicit_release() -> None:
     with pytest.raises(ToolVersionError,match="explicit numeric release"):
         HappyWrapper(configured_version="unknown")

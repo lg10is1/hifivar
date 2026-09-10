@@ -311,3 +311,52 @@ benchmark:
     threads: 1
     memory_mb: 4000
     runtime_minutes: 120
+
+# Phase 15 low-depth experiments are opt-in. Thresholds are deliberately empty:
+# users must preregister dataset-appropriate acceptance criteria before enabling.
+low_depth:
+  enabled: false
+  study_id: null
+  sample_id: null
+  # aligned_bam preserves the original engineering branch. raw_fastq creates
+  # molecule-level nested inputs for independent realignment and benchmarking.
+  input_mode: aligned_bam
+  source_bam: null
+  source_fastqs: []
+  baseline_coverage: null
+  target_coverages: []
+  replicates: 3
+  base_seed: 1729
+  profiles:
+    - name: baseline
+      settings: {}
+  thresholds: []
+  minimum_successful_replicates: 3
+  minimum_pass_fraction: 1.0
+  samtools_executable: samtools
+  threads: 4
+  memory_mb: 8000
+  runtime_minutes: 120
+  overwrite: false
+  end_to_end:
+    enabled: false
+    pbmm2_executable: pbmm2
+    samtools_executable: samtools
+    happy_executable: hap.py
+    happy_version: null
+    truth_vcf: null
+    truth_version: null
+    truth_source: null
+    confident_bed: null
+    confident_bed_version: null
+    metrics_compression: gzip
+    alignment_threads: 8
+    alignment_memory_mb: 32000
+    alignment_runtime_minutes: 1440
+    coverage_runtime_minutes: 120
+    deepvariant_threads: 4
+    deepvariant_memory_mb: 64000
+    deepvariant_runtime_minutes: 2880
+    happy_threads: 2
+    happy_memory_mb: 16000
+    happy_runtime_minutes: 480

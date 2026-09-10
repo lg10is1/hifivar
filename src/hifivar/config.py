@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -141,6 +142,18 @@ _ALLOWED_SCHEMA = {
     "benchmark": frozenset(
         {"enabled", "benchmark_id", "sample_id", "overwrite", "small_variants", "sv", "assembly_sv", "tr"}
     ),
+    "low_depth": frozenset(
+        {
+            "enabled", "study_id", "sample_id", "input_mode", "source_bam",
+            "source_fastqs",
+            "baseline_coverage", "target_coverages", "replicates",
+            "base_seed", "profiles", "thresholds",
+            "minimum_successful_replicates", "minimum_pass_fraction",
+            "samtools_executable", "threads", "memory_mb",
+            "runtime_minutes", "overwrite",
+            "end_to_end",
+        }
+    ),
 }
 _REQUIRED_FIELDS = {
     "project": frozenset({"name"}),
@@ -184,6 +197,7 @@ _PATH_FIELDS = (
     ("annotation", "segdup_bed"),
     ("annotation", "functional_selection_file"),
     ("cohort", "input_manifest"),
+    ("low_depth", "source_bam"),
 )
 _WORKFLOW_PRESETS = frozenset(
     {"fast", "standard", "comprehensive", "cohort", "trio"}
@@ -871,6 +885,206 @@ def validate_config(
             raise ConfigurationError("benchmark.enabled requires benchmark_id, sample_id, and at least one enabled track.")
         if benchmark.get("enabled") and (reference is None or not reference.get("build")):
             raise ConfigurationError("benchmark.enabled requires an explicit reference.build.")
+    low_depth = _optional_section(config, "low_depth")
+    if low_depth is not None:
+        for key in ("enabled", "overwrite"):
+            if key in low_depth and not isinstance(low_depth[key], bool):
+                raise ConfigurationError(f"low_depth.{key} must be a boolean.")
+        for key in ("study_id", "sample_id", "samtools_executable"):
+            value = low_depth.get(key)
+            if value is not None and (not isinstance(value, str) or not value.strip()):
+                raise ConfigurationError(f"low_depth.{key} must be a non-empty string or null.")
+        study_id = low_depth.get("study_id")
+        if isinstance(study_id, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", study_id) is None:
+            raise ConfigurationError("low_depth.study_id must be a safe identifier.")
+        if "source_bam" in low_depth:
+            _validate_optional_path(low_depth["source_bam"], "low_depth.source_bam")
+        input_mode = low_depth.get("input_mode", "aligned_bam")
+        _validate_choice(
+            input_mode, "low_depth.input_mode",
+            frozenset({"aligned_bam", "raw_fastq"}),
+        )
+        source_fastqs = low_depth.get("source_fastqs")
+        if source_fastqs is not None:
+            if (
+                not isinstance(source_fastqs, list)
+                or any(not isinstance(path, str) or not path.strip() for path in source_fastqs)
+                or len(set(source_fastqs)) != len(source_fastqs)
+            ):
+                raise ConfigurationError(
+                    "low_depth.source_fastqs must be a list of unique non-empty paths."
+                )
+        baseline = low_depth.get("baseline_coverage")
+        if baseline is not None and (
+            isinstance(baseline, bool)
+            or not isinstance(baseline, (int, float))
+            or baseline <= 0
+        ):
+            raise ConfigurationError("low_depth.baseline_coverage must be positive or null.")
+        for key in ("replicates", "minimum_successful_replicates", "threads", "memory_mb", "runtime_minutes"):
+            if key in low_depth:
+                _validate_positive_integer(low_depth[key], f"low_depth.{key}")
+        if "base_seed" in low_depth:
+            value = low_depth["base_seed"]
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ConfigurationError("low_depth.base_seed must be a non-negative integer.")
+        fraction = low_depth.get("minimum_pass_fraction")
+        if fraction is not None and (
+            isinstance(fraction, bool)
+            or not isinstance(fraction, (int, float))
+            or not 0 < float(fraction) <= 1
+        ):
+            raise ConfigurationError("low_depth.minimum_pass_fraction must be in (0, 1].")
+        targets = low_depth.get("target_coverages")
+        if targets is not None:
+            if not isinstance(targets, list):
+                raise ConfigurationError(
+                    "low_depth.target_coverages must be a list."
+                )
+            if targets:
+                invalid_target = any(
+                    isinstance(value, bool)
+                    or not isinstance(value, (int, float))
+                    or value <= 0
+                    for value in targets
+                )
+                numeric_targets = [float(value) for value in targets] if not invalid_target else []
+                if (
+                    invalid_target
+                    or numeric_targets != sorted(set(numeric_targets))
+                    or (baseline is not None and any(value > float(baseline) for value in numeric_targets))
+                ):
+                    raise ConfigurationError(
+                        "low_depth.target_coverages must be unique ascending positive numbers no greater than baseline_coverage."
+                    )
+        profiles = low_depth.get("profiles")
+        if profiles is not None:
+            if not isinstance(profiles, list) or not profiles:
+                raise ConfigurationError("low_depth.profiles must be a non-empty list.")
+            names: list[str] = []
+            for profile in profiles:
+                if not isinstance(profile, Mapping) or set(profile) != {"name", "settings"}:
+                    raise ConfigurationError("Each low_depth profile requires exactly name and settings.")
+                name = profile["name"]
+                if not isinstance(name, str) or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", name) is None:
+                    raise ConfigurationError("low_depth profile names must be safe non-empty identifiers.")
+                if not isinstance(profile["settings"], Mapping):
+                    raise ConfigurationError("low_depth profile settings must be mappings.")
+                names.append(name)
+            if len(set(names)) != len(names):
+                raise ConfigurationError("low_depth profile names must be unique.")
+        thresholds = low_depth.get("thresholds")
+        if thresholds is not None:
+            if not isinstance(thresholds, list):
+                raise ConfigurationError("low_depth.thresholds must be a list.")
+            keys: list[tuple[str, str]] = []
+            for threshold in thresholds:
+                if not isinstance(threshold, Mapping) or set(threshold) != {"variant_class", "metric", "minimum"}:
+                    raise ConfigurationError("Each low_depth threshold requires variant_class, metric, and minimum.")
+                variant_class = threshold["variant_class"]
+                metric = threshold["metric"]
+                minimum = threshold["minimum"]
+                if not isinstance(variant_class, str) or not variant_class.strip() or not isinstance(metric, str) or not metric.strip():
+                    raise ConfigurationError("low_depth threshold class and metric must be non-empty strings.")
+                if isinstance(minimum, bool) or not isinstance(minimum, (int, float)) or not 0 <= float(minimum) <= 1:
+                    raise ConfigurationError("low_depth threshold minimum must be between 0 and 1.")
+                keys.append((variant_class, metric))
+            if len(set(keys)) != len(keys):
+                raise ConfigurationError("low_depth thresholds must be unique by class and metric.")
+        replicates = low_depth.get("replicates")
+        minimum_replicates = low_depth.get("minimum_successful_replicates")
+        if isinstance(replicates, int) and isinstance(minimum_replicates, int) and minimum_replicates > replicates:
+            raise ConfigurationError("low_depth.minimum_successful_replicates cannot exceed replicates.")
+        if low_depth.get("enabled"):
+            required = (
+                "study_id", "sample_id", "baseline_coverage",
+                "target_coverages", "profiles", "thresholds",
+            )
+            missing = [key for key in required if not low_depth.get(key)]
+            if input_mode == "aligned_bam" and not low_depth.get("source_bam"):
+                missing.append("source_bam")
+            if input_mode == "raw_fastq" and not low_depth.get("source_fastqs"):
+                missing.append("source_fastqs")
+            if missing:
+                raise ConfigurationError(f"low_depth.enabled configuration is incomplete: {missing!r}.")
+        end_to_end = low_depth.get("end_to_end")
+        if end_to_end is not None:
+            if not isinstance(end_to_end, Mapping):
+                raise ConfigurationError("low_depth.end_to_end must be a mapping.")
+            allowed_e2e = {
+                "enabled", "pbmm2_executable", "samtools_executable",
+                "happy_executable", "happy_version", "truth_vcf",
+                "truth_version", "truth_source", "confident_bed",
+                "confident_bed_version", "metrics_compression",
+                "alignment_threads", "alignment_memory_mb",
+                "alignment_runtime_minutes", "coverage_runtime_minutes",
+                "deepvariant_threads", "deepvariant_memory_mb",
+                "deepvariant_runtime_minutes", "happy_threads",
+                "happy_memory_mb", "happy_runtime_minutes",
+            }
+            unknown_e2e = set(end_to_end).difference(allowed_e2e)
+            if unknown_e2e:
+                raise ConfigurationError(
+                    f"Unknown low_depth.end_to_end key(s): {sorted(unknown_e2e)!r}."
+                )
+            if "enabled" in end_to_end and not isinstance(end_to_end["enabled"], bool):
+                raise ConfigurationError("low_depth.end_to_end.enabled must be boolean.")
+            for key in (
+                "pbmm2_executable", "samtools_executable", "happy_executable",
+                "happy_version", "truth_vcf", "truth_version", "truth_source",
+                "confident_bed", "confident_bed_version",
+            ):
+                value = end_to_end.get(key)
+                if value is not None and (not isinstance(value, str) or not value.strip()):
+                    raise ConfigurationError(
+                        f"low_depth.end_to_end.{key} must be a non-empty string or null."
+                    )
+            compression = end_to_end.get("metrics_compression", "gzip")
+            _validate_choice(
+                compression, "low_depth.end_to_end.metrics_compression",
+                frozenset({"gzip", "plain"}),
+            )
+            for key in (
+                "alignment_threads", "alignment_memory_mb",
+                "alignment_runtime_minutes", "coverage_runtime_minutes",
+                "deepvariant_threads", "deepvariant_memory_mb",
+                "deepvariant_runtime_minutes", "happy_threads",
+                "happy_memory_mb", "happy_runtime_minutes",
+            ):
+                if key in end_to_end:
+                    _validate_positive_integer(
+                        end_to_end[key], f"low_depth.end_to_end.{key}"
+                    )
+            if end_to_end.get("enabled"):
+                if input_mode != "raw_fastq":
+                    raise ConfigurationError(
+                        "low_depth.end_to_end requires low_depth.input_mode=raw_fastq."
+                    )
+                profile_names = [
+                    profile.get("name")
+                    for profile in profiles
+                    if isinstance(profile, Mapping)
+                ] if isinstance(profiles, list) else []
+                if profile_names != ["baseline"]:
+                    raise ConfigurationError(
+                        "low_depth.end_to_end currently requires exactly one profile "
+                        "named 'baseline'; optimization profiles require an "
+                        "independently validated study design."
+                    )
+                required_e2e = (
+                    "truth_vcf", "truth_version", "truth_source",
+                    "confident_bed", "confident_bed_version",
+                )
+                missing_e2e = [key for key in required_e2e if not end_to_end.get(key)]
+                if missing_e2e:
+                    raise ConfigurationError(
+                        "low_depth.end_to_end is incomplete: "
+                        f"{missing_e2e!r}."
+                    )
+                if reference is None or not reference.get("fasta") or not reference.get("build"):
+                    raise ConfigurationError(
+                        "low_depth.end_to_end requires explicit reference.fasta and reference.build."
+                    )
     assembly = _optional_section(config, "assembly")
     if assembly is not None:
         for key in ("enabled", "overwrite"):
@@ -1060,6 +1274,19 @@ def _expand_user_paths(config: Mapping[str, object]) -> ConfigDict:
                 raise ConfigurationError(
                     f"Unable to expand user path for {section_name}.{key}: "
                     f"{value!r}."
+                ) from error
+    low_depth = expanded.get("low_depth")
+    if isinstance(low_depth, dict):
+        source_fastqs = low_depth.get("source_fastqs")
+        if isinstance(source_fastqs, list):
+            try:
+                low_depth["source_fastqs"] = [
+                    str(Path(value).expanduser()) if value.startswith("~") else value
+                    for value in source_fastqs
+                ]
+            except RuntimeError as error:
+                raise ConfigurationError(
+                    "Unable to expand a path in low_depth.source_fastqs."
                 ) from error
     return expanded
 
