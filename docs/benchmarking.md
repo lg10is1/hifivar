@@ -204,3 +204,13 @@ When citing benchmark results, cite the individual tools:
 
 CITATION_VERIFICATION_REQUIRED: Verify all DOIs and URLs before
 formal publication.
+# Phase 15 low-depth experiments
+
+The optional Phase 15 framework constructs deterministic replicated depth
+matrices and evaluates user-declared thresholds using Phase 13 metric keys. It
+supports an aligned-BAM engineering mode and a raw-FASTQ mode that assigns
+PacBio molecules to exact nested subsets before independent realignment. It
+does not reinterpret the frozen HG002 results below and does not yet establish
+a generally applicable minimum HiFi depth. See
+[`docs/phases/phase15.md`](phases/phase15.md) for the experiment contract and
+Linux/HPC validation requirements.

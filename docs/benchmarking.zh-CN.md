@@ -168,3 +168,11 @@ CMRG 真相 VCF 包含 250 条总 SV 记录。Truvari 应用 `--sizemin 50`，�
 ## 引用验证
 
 CITATION_VERIFICATION_REQUIRED: 正式发表前验证所有 DOI 和 URL。
+# Phase 15 低深度 HiFi 实验
+
+可选的 Phase 15 使用“参数 profile × 目标深度 × 重复次数”矩阵，并由用户
+预先登记 SNP/INDEL 等类别的准确度阈值。它支持已比对 BAM 工程模式和原始
+FASTQ 分子级嵌套抽样模式；后者用于独立重新比对、calling 和 truth benchmark。
+它区分目标深度与实际观测深度，不会把一次实验或单个样本结果宣称为通用最低
+测序深度，也不会自动声明某个参数 profile 最优。具体契约见
+[Phase 15 文档](phases/phase15.md)。

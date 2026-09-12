@@ -803,3 +803,28 @@ The `0.1.0rc4` packaged DAG consumes existing indexed BAM/CRAM for small/SV/TR
 tracks. FASTQ-to-pbmm2 execution remains available through the Phase 2 Python
 integration but is not a packaged alignment rule or unified CLI command. Public
 documentation must preserve this distinction until that integration exists.
+
+## Phase 15 low-depth benchmark boundary
+
+Phase 15 is an optional experiment layer with two explicit input boundaries.
+Its disabled-by-default end-to-end branch maps every raw subset to an isolated
+pbmm2 BAM/BAI, measured-coverage JSON, DeepVariant VCF/gVCF/TBI, hap.py result,
+and observation record. It reuses existing wrappers and global DeepVariant
+resource controls rather than duplicating third-party commands.
+The aligned-BAM engineering mode uses deterministic samtools subsampling over
+an immutable coordinate-sorted BAM. The scientific-study mode streams one or
+more immutable HiFi FASTQs once per replicate and assigns PacBio movie/ZMW
+molecules by a stable hash before independent alignment and calling. Both feed
+the unchanged caller and Phase 13 benchmark contracts and are summarized as
+replicated threshold assessments.
+One seed is assigned per replicate and reused across depths and profiles, so
+lower fractions remain nested within higher fractions without confounding
+profile comparisons; distinct replicates keep distinct seeds.
+
+`hifivar.low_depth` owns experiment models, seeds, explicit threshold policy,
+the streaming FASTQ boundary and the `CommandRunner`-only samtools boundary.
+Target coverage is not observed
+coverage. A lowest supported assessed depth is dataset- and policy-specific,
+never a universal sequencing recommendation. The Snakemake branch materializes
+inputs only; it does not alter caller semantics, invent an optimizer, or enter
+Phase 16.

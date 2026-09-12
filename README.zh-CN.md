@@ -17,6 +17,9 @@ HiFiVar 是面向 PacBio HiFi 全基因组变异分析的模块化、可复现�
 - 可选下游分支的模块化 Snakemake rules；
 - QC、manifest、benchmark、review 和 final report 数据模型；
 - wheel、sdist、本地 Conda recipe、Docker core 和 Apptainer core 定义。
+- 可选的 Phase 15 低深度 HiFi 重复实验框架，支持已比对 BAM 工程实验及原始
+  FASTQ 分子级嵌套抽样；其阈值必须显式配置，当前不宣称
+  存在通用最低测序深度或自动最优参数。
 
 Python 包和 core container **不包含**外部 caller、容器镜像、参考基因组、
 数据库、cache 或 WGS 数据，启用相应分支前必须独立部署并验证。
@@ -106,6 +109,7 @@ caller 支持数、人工 review、注释影响或 benchmark 状态等同于生�
 - [输出说明（英文）](docs/outputs.md)
 - [常见问题（英文）](docs/troubleshooting.md)
 - [外部工具部署矩阵（英文）](docs/deployment.md)
+- [Phase 15 低深度 benchmark 契约（英文）](docs/phases/phase15.md)
 
 ## License
 

@@ -4,6 +4,32 @@ All notable changes to HiFiVar will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Add Phase 15 deterministic low-depth experiment models, explicit
+  profile/depth/replicate planning, preregistered per-class accuracy thresholds,
+  conservative replicated assessments, nested per-replicate sampling across
+  depths, and JSON/YAML result serialization.
+- Add a CommandRunner-only samtools aligned-BAM subsampling/index boundary plus
+  coordinate-sort and quickcheck validation, and an optional config-driven
+  per-replicate Snakemake materialization branch. This introduces no universal
+  minimum-depth claim, caller change, or Phase 16 behavior.
+- Add a multi-file, streaming raw HiFi FASTQ mode that hashes PacBio movie/ZMW
+  molecule identities once per replicate, fans records into exact nested depth
+  subsets, preserves distinct replicate seeds, and keeps all source reads
+  immutable. Independent pbmm2/DeepVariant/hap.py Linux validation remains a
+  required scientific gate.
+- Add an opt-in Phase 15 raw FASTQ-to-benchmark branch that reuses the existing
+  pbmm2, samtools, DeepVariant and hap.py wrappers, isolates each replicate's
+  temporary storage, measures observed coverage and records benchmark
+  observations without making a minimum-depth or cost-reduction claim.
+
+### Fixed
+
+- Parse `samtools coverage` from either CommandRunner's in-memory stdout or its
+  persisted sibling stdout log, so Phase 15 coverage measurement remains
+  compatible with tool-specific stderr logging.
+
 ## [0.1.0rc4] - 2026-09-02
 
 This release candidate contains only the independently Linux-validated

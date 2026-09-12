@@ -312,3 +312,33 @@ than assuming every wrapper has a real-tool PASS. Complete
 
 CI intentionally excludes heavy tools, databases, containers, WGS data and
 scientific benchmark runs. Those are explicit Linux/HPC evidence gates.
+
+## Phase 15 low-depth verification
+
+Before an expensive matrix, enable `low_depth.end_to_end` only for a tiny
+Linux gate (one region/depth/replicate). Its dry-run must contain
+`low_depth_align`, `low_depth_measure_coverage`, `low_depth_deepvariant`,
+`low_depth_happy`, and `low_depth_observation`; each DeepVariant job must retain
+an isolated TMPDIR and consume one global `deepvariant_slots` unit.
+
+Phase 15 uses a preregistered profile × depth × replicate matrix and explicit
+metric thresholds. `aligned_bam` mode uses samtools and requires coordinate
+sort plus quickcheck validation. `raw_fastq` mode streams PacBio molecules once
+per replicate into all requested depths and is the required starting point for
+an independent realignment/calling accuracy study. Raw uBAM conversion is not
+silently substituted.
+
+```bash
+python -m pytest -p no:cacheprovider tests/unit/test_low_depth.py \
+  tests/unit/test_low_depth_config.py \
+  tests/integration/test_phase15_complete.py \
+  tests/integration/test_snakemake_phase15.py
+snakemake --snakefile workflow/Snakefile \
+  --configfile effective.phase15.yaml --cores 4 --dry-run
+```
+
+Linux validation must record input mode, source checksums, seeds, target
+and independently observed coverage, caller versions, truth-set/region identity,
+per-replicate Phase 13 metrics, and unchanged source hashes. Do not publish a
+minimum-depth or cost claim until a complete replicated matrix and independent
+data support it.

@@ -20,6 +20,10 @@ on Linux/HPC and is not a clinical diagnostic system.
 - Python wheel, source distribution, Conda recipe, Docker core image and
   Apptainer core definition;
 - mock/lightweight CI plus separate Linux/HPC real-tool validation boundaries.
+- an opt-in Phase 15 framework for deterministic, replicated low-depth HiFi
+  experiments, including aligned-BAM engineering studies and molecule-level
+  nested raw-FASTQ subsets plus an optional pbmm2 → DeepVariant → hap.py study
+  branch, with no universal-depth claim.
 
 External executables, container images, references, databases, caches and WGS
 data are **not** bundled in the Python package or core container.
@@ -146,6 +150,7 @@ with biological truth or pathogenicity.
 - [Public distribution validation](docs/distribution_validation.md)
 - [Current project status and validated boundaries](docs/project_status.md)
 - [Scientific figure and visual integrity rules](PROJECT_VISUAL_RULES.md)
+- [Phase 15 low-depth benchmark contract](docs/phases/phase15.md)
 
 ## Verified benchmarks (HG002)
 
