@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -332,6 +333,7 @@ class AlignmentResult:
     command: AlignmentCommandPlan | None = None
     tool_version: str | None = None
     duration_seconds: float | None = None
+    provenance: Mapping[str, object] | None = None
 
     def __post_init__(self) -> None:
         """Reject contradictory action and result states."""
@@ -364,6 +366,12 @@ class AlignmentResult:
             raise InputValidationError(
                 "Alignment result duration_seconds must be non-negative or None."
             )
+        if self.provenance is not None:
+            if not isinstance(self.provenance, Mapping):
+                raise InputValidationError(
+                    "Alignment result provenance must be a mapping or None."
+                )
+            object.__setattr__(self, "provenance", dict(self.provenance))
 
         if self.plan.action is AlignmentAction.REUSE:
             if self.status is not AlignmentResultStatus.REUSED or self.command:
@@ -397,6 +405,9 @@ class AlignmentResult:
             "command": self.command.to_dict() if self.command is not None else None,
             "tool_version": self.tool_version,
             "duration_seconds": self.duration_seconds,
+            "provenance": (
+                dict(self.provenance) if self.provenance is not None else None
+            ),
         }
 
 
