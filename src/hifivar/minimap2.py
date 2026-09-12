@@ -17,6 +17,7 @@ from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from uuid import uuid4
 
 from hifivar import validation
 from hifivar.alignment import (
@@ -50,7 +51,7 @@ _VERSION_BARE_PATTERN = re.compile(
     re.MULTILINE,
 )
 _HIFI_PRESETS = frozenset({"map-hifi", "asm20", "asm10", "asm5"})
-_OUTPUT_FORMATS = frozenset({"bam", "cram"})
+_OUTPUT_FORMATS = frozenset({"bam"})
 _LOG_LEVELS = frozenset({"DEBUG", "INFO", "WARNING", "ERROR"})
 
 
@@ -253,9 +254,11 @@ class Minimap2Wrapper:
         the minimap2 command with -a flag and explicit FASTQ input paths.
         """
         self._validate_request_contract(request)
+        # minimap2 parses literal backslash-t escapes in its -R argument.
+        # Actual tab characters belong in the resulting SAM header only.
         read_group = (
-            f"@RG\tID:{request.sample.sample_id}\t"
-            f"SM:{request.sample.sample_id}\tPL:PACBIO"
+            f"@RG\\tID:{request.sample.sample_id}\\t"
+            f"SM:{request.sample.sample_id}\\tPL:PACBIO"
         )
         if request.resources is None:
             raise InputValidationError("minimap2 request resources are missing.")
@@ -371,15 +374,26 @@ class Minimap2Wrapper:
 
         # R2-MAJOR-007: Unique task-owned intermediate paths
         output_stem = request.output_path.stem
-        task_id = f"{request.sample.sample_id}_{output_stem}"
+        task_id = (
+            f"{request.sample.sample_id}_{output_stem}_{uuid4().hex}"
+        )
         intermediate_sam = request.output_path.parent / f".{task_id}.intermediate.sam"
 
-        # R2-MAJOR-007: Separate stderr logs per step
-        stderr_base = request.output_path.parent / ".logs"
+        # R2-MAJOR-007: Separate stderr logs per step. When the caller supplies
+        # a log path, keep minimap2 at that exact path and derive the two
+        # samtools logs beside it.
+        if stderr_path is not None:
+            minimap2_stderr = Path(stderr_path)
+            stderr_base = minimap2_stderr.parent
+            log_prefix = minimap2_stderr.name
+            samtools_sort_stderr = stderr_base / f"{log_prefix}.samtools_sort"
+            samtools_index_stderr = stderr_base / f"{log_prefix}.samtools_index"
+        else:
+            stderr_base = request.output_path.parent / ".logs"
+            minimap2_stderr = stderr_base / f".{task_id}.minimap2.stderr"
+            samtools_sort_stderr = stderr_base / f".{task_id}.samtools_sort.stderr"
+            samtools_index_stderr = stderr_base / f".{task_id}.samtools_index.stderr"
         stderr_base.mkdir(parents=True, exist_ok=True)
-        minimap2_stderr = stderr_base / f".{task_id}.minimap2.stderr"
-        samtools_sort_stderr = stderr_base / f".{task_id}.samtools_sort.stderr"
-        samtools_index_stderr = stderr_base / f".{task_id}.samtools_index.stderr"
 
         partial_bam = request.output_path.with_suffix(f".{task_id}.partial.bam")
         partial_bai = Path(f"{partial_bam}.bai")
@@ -432,6 +446,15 @@ class Minimap2Wrapper:
             status=AlignmentResultStatus.COMPLETED,
             command=command_plan,
             tool_version=f"minimap2={version};samtools={samtools_version}",
+            duration_seconds=sum(
+                step.duration_seconds
+                for step in (
+                    provenance.minimap2,
+                    provenance.samtools_sort,
+                    provenance.samtools_index,
+                )
+            ),
+            provenance=provenance.to_dict(),
         )
 
     def _execute_pipeline(
@@ -620,6 +643,24 @@ class Minimap2Wrapper:
                 f"{', '.join(sorted(missing)[:5])}."
             )
 
+        if not header.reference_contigs:
+            raise OutputValidationError(
+                f"Output BAM '{bam_path}' has no reference contigs."
+            )
+        index_query = [
+            self.samtools_executable,
+            "view",
+            "-c",
+            str(bam_path),
+            f"{header.reference_contigs[0]}:1-1",
+        ]
+        index_result = self.runner.run(index_query, check=False)
+        if index_result.returncode != 0:
+            raise OutputValidationError(
+                f"Output BAM index is not readable for '{bam_path}': "
+                f"{index_result.stderr or index_result.stdout or 'unknown error'}"
+            )
+
         _LOGGER.debug(
             "Output validation passed: bam=%s quickcheck=OK sort=coordinate "
             "rg=%s sm=%s contigs=%d",
@@ -642,31 +683,74 @@ class Minimap2Wrapper:
         final_bam = request.output_path
         final_bai = Path(f"{final_bam}.bai")
 
-        try:
-            partial_bam.replace(final_bam)
-        except OSError as error:
-            raise OutputValidationError(
-                f"Failed to atomically replace BAM '{final_bam}': {error}"
-            ) from error
+        backup_token = uuid4().hex
+        backup_bam = final_bam.parent / f".{final_bam.name}.{backup_token}.backup"
+        backup_bai = final_bai.parent / f".{final_bai.name}.{backup_token}.backup"
+        had_bam = final_bam.exists()
+        had_bai = final_bai.exists()
+        backed_up_bam = False
+        backed_up_bai = False
+        published_bam = False
+        published_bai = False
 
         try:
-            partial_bai.replace(final_bai)
+            if had_bam:
+                self._replace_path(final_bam, backup_bam)
+                backed_up_bam = True
+            if had_bai:
+                self._replace_path(final_bai, backup_bai)
+                backed_up_bai = True
+            self._replace_path(partial_bam, final_bam)
+            published_bam = True
+            self._replace_path(partial_bai, final_bai)
+            published_bai = True
         except OSError as error:
-            # Restore BAM if index replacement fails
-            if final_bam.exists():
-                try:
-                    final_bam.unlink()
-                except OSError:
-                    pass
+            rollback_errors: list[str] = []
+            for was_published, published in (
+                (published_bam, final_bam),
+                (published_bai, final_bai),
+            ):
+                if was_published and published.exists():
+                    try:
+                        published.unlink()
+                    except OSError as rollback_error:
+                        rollback_errors.append(str(rollback_error))
+            for was_backed_up, backup, destination in (
+                (backed_up_bam, backup_bam, final_bam),
+                (backed_up_bai, backup_bai, final_bai),
+            ):
+                if was_backed_up and backup.exists():
+                    try:
+                        self._replace_path(backup, destination)
+                    except OSError as rollback_error:
+                        rollback_errors.append(str(rollback_error))
+            details = (
+                f" Rollback errors: {'; '.join(rollback_errors)}"
+                if rollback_errors
+                else ""
+            )
             raise OutputValidationError(
-                f"Failed to atomically replace BAI '{final_bai}': {error}"
+                "Failed to publish validated BAM/BAI pair atomically: "
+                f"{error}.{details}"
             ) from error
+        else:
+            for backup in (backup_bam, backup_bai):
+                if backup.exists():
+                    try:
+                        backup.unlink()
+                    except OSError:
+                        _LOGGER.warning("Failed to remove output backup: %s", backup)
 
         _LOGGER.debug(
             "Atomic replacement completed: bam=%s bai=%s",
             final_bam,
             final_bai,
         )
+
+    @staticmethod
+    def _replace_path(source: Path, destination: Path) -> None:
+        """Replace one path through a testable filesystem boundary."""
+        source.replace(destination)
 
     def _validate_request_contract(self, request: AlignmentRequest) -> None:
         """Require the generic request subset supported by minimap2."""
@@ -678,12 +762,9 @@ class Minimap2Wrapper:
             raise InputValidationError(
                 f"minimap2 cannot handle alignment tool {request.tool.value}."
             )
-        if request.output_format not in (
-            AlignmentOutputFormat.BAM,
-            AlignmentOutputFormat.CRAM,
-        ):
+        if request.output_format is not AlignmentOutputFormat.BAM:
             raise InputValidationError(
-                "minimap2 output must be BAM or CRAM."
+                "minimap2 CRAM output is deferred; request BAM output."
             )
         if request.resources is None:
             raise InputValidationError("minimap2 request resources are missing.")
@@ -698,6 +779,7 @@ class Minimap2Wrapper:
     def _prepare_output(self, request: AlignmentRequest) -> None:
         """Recheck overwrite policy and create only the requested parent."""
         output = request.output_path
+        index = Path(f"{output}.bai")
         if output.exists() and output.is_dir():
             raise OutputValidationError(
                 f"minimap2 output path is a directory: '{output}'."
@@ -705,6 +787,10 @@ class Minimap2Wrapper:
         if output.exists() and not request.overwrite:
             raise OutputValidationError(
                 f"minimap2 output already exists: '{output}'."
+            )
+        if index.exists() and not request.overwrite:
+            raise OutputValidationError(
+                f"minimap2 output index already exists: '{index}'."
             )
         try:
             output.parent.mkdir(parents=True, exist_ok=True)

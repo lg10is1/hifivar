@@ -53,6 +53,7 @@ class FakeCommandRunner:
         self.fail_sort = False
         self.fail_index = False
         self.fail_quickcheck = False
+        self.fail_index_readability = False
         self.available = True
 
     def require_executable(self, executable: str) -> Path:
@@ -88,6 +89,18 @@ class FakeCommandRunner:
             return CommandResult(
                 args=args, returncode=0, stdout=header,
                 stderr="", duration_seconds=0.01, cwd=None, executed=True,
+            )
+
+        # Handle an indexed region query used to validate BAI readability.
+        if args[0] == "samtools" and len(args) >= 3 and args[1:3] == ("view", "-c"):
+            return CommandResult(
+                args=args,
+                returncode=1 if self.fail_index_readability else 0,
+                stdout="" if self.fail_index_readability else "0\n",
+                stderr="unreadable index" if self.fail_index_readability else "",
+                duration_seconds=0.01,
+                cwd=None,
+                executed=True,
             )
 
         # Handle samtools quickcheck
@@ -229,14 +242,14 @@ class TestMinimap2Options:
             {
                 "alignment": {
                     "minimap2_preset": "ASM20",
-                    "minimap2_output_format": "CRAM",
+                    "minimap2_output_format": "BAM",
                     "minimap2_log_level": "debug",
                 }
             }
         )
         assert options.to_dict() == {
             "preset": "asm20",
-            "output_format": "cram",
+            "output_format": "bam",
             "log_level": "DEBUG",
             "extra_flags": [],
         }
@@ -265,6 +278,7 @@ class TestMinimap2Options:
             {"preset": "SUBREAD"},
             {"preset": 1},
             {"output_format": "sam"},
+            {"output_format": "cram"},
             {"output_format": None},
             {"log_level": "VERBOSE"},
             {"log_level": None},
@@ -295,7 +309,9 @@ class TestMinimap2Wrapper:
         assert "-R" in command
         rg_idx = command.index("-R")
         read_group = command[rg_idx + 1]
-        assert read_group == "@RG\tID:S1\tSM:S1\tPL:PACBIO"
+        assert read_group == r"@RG\tID:S1\tSM:S1\tPL:PACBIO"
+        assert "\t" not in read_group
+        assert read_group.count(r"\t") == 3
         assert str(request.reference.fasta) in command
 
     def test_build_command_includes_fastq_paths(self, tmp_path: Path) -> None:
@@ -467,10 +483,10 @@ class TestMinimap2Wrapper:
         with pytest.raises(FrozenInstanceError):
             request.threads = 2  # type: ignore[misc]
 
-    def test_cram_output_format_accepted(self, tmp_path: Path) -> None:
+    def test_cram_output_format_is_explicitly_deferred(self, tmp_path: Path) -> None:
         request = make_request(tmp_path, output_format=AlignmentOutputFormat.CRAM)
-        command = make_wrapper().build_command(request)
-        assert command[0] == "minimap2"
+        with pytest.raises(InputValidationError, match="CRAM output is deferred"):
+            make_wrapper().build_command(request)
 
     def test_different_presets_accepted(self, tmp_path: Path) -> None:
         for preset in ("map-hifi", "asm20", "asm10", "asm5"):
@@ -513,6 +529,15 @@ class TestMinimap2WrapperE2E:
         assert result.tool_version is not None
         assert "minimap2=" in result.tool_version
         assert "samtools=" in result.tool_version
+        assert result.duration_seconds is not None
+        assert result.duration_seconds >= 0
+        assert result.provenance is not None
+        provenance = result.to_dict()["provenance"]
+        assert isinstance(provenance, dict)
+        assert provenance["sample_id"] == "S1"
+        assert provenance["minimap2"]["command"][0] == "minimap2"
+        assert provenance["samtools_sort"]["command"][:2] == ["samtools", "sort"]
+        assert provenance["samtools_index"]["command"][:2] == ["samtools", "index"]
 
         # Verify the output file exists
         assert request.output_path.exists()
@@ -575,6 +600,16 @@ class TestMinimap2WrapperE2E:
         # Output should not exist (validation failed)
         assert not request.output_path.exists()
 
+    def test_e2e_alignment_chain_unreadable_index_fails(self, tmp_path: Path) -> None:
+        runner = FakeCommandRunner()
+        runner.fail_index_readability = True
+        request = make_request(tmp_path)
+
+        with pytest.raises(OutputValidationError, match="index is not readable"):
+            make_wrapper(runner).run(request)
+
+        assert not request.output_path.exists()
+
     def test_e2e_alignment_creates_unique_intermediates(self, tmp_path: Path) -> None:
         """R2-MAJOR-007: Intermediate paths are unique and task-owned."""
         runner = FakeCommandRunner()
@@ -601,6 +636,21 @@ class TestMinimap2WrapperE2E:
         logs_dir = request.output_path.parent / ".logs"
         assert logs_dir.exists()
 
+    def test_e2e_alignment_honors_explicit_stderr_path(self, tmp_path: Path) -> None:
+        runner = FakeCommandRunner()
+        request = make_request(tmp_path)
+        stderr_path = tmp_path / "logs" / "alignment.stderr"
+
+        result = make_wrapper(runner).run(request, stderr_path=stderr_path)
+
+        assert result.status is AlignmentResultStatus.COMPLETED
+        assert result.provenance is not None
+        assert result.provenance["minimap2"]["stderr_path"] == str(stderr_path)
+        assert (
+            result.provenance["samtools_sort"]["stderr_path"]
+            == str(stderr_path.parent / "alignment.stderr.samtools_sort")
+        )
+
     def test_e2e_alignment_atomic_replacement(self, tmp_path: Path) -> None:
         """R2-MAJOR-003: Atomic replacement preserves existing final on failure."""
         runner = FakeCommandRunner()
@@ -618,6 +668,54 @@ class TestMinimap2WrapperE2E:
             wrapper.run(request)
 
         # Existing final artifacts should be preserved
+        assert request.output_path.read_bytes() == b"existing-good-bam"
+        assert bai_path.read_bytes() == b"existing-good-bai"
+
+    def test_e2e_alignment_rolls_back_when_bai_publication_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        runner = FakeCommandRunner()
+        request = make_request(tmp_path, overwrite=True)
+        request.output_path.parent.mkdir(parents=True)
+        request.output_path.write_bytes(b"existing-good-bam")
+        bai_path = Path(f"{request.output_path}.bai")
+        bai_path.write_bytes(b"existing-good-bai")
+        wrapper = make_wrapper(runner)
+        real_replace = wrapper._replace_path
+
+        def fail_bai_publish(source: Path, destination: Path) -> None:
+            if ".partial.bam.bai" in source.name and destination == bai_path:
+                raise OSError("simulated BAI publication failure")
+            real_replace(source, destination)
+
+        monkeypatch.setattr(wrapper, "_replace_path", fail_bai_publish)
+        with pytest.raises(OutputValidationError, match="publish validated BAM/BAI"):
+            wrapper.run(request)
+
+        assert request.output_path.read_bytes() == b"existing-good-bam"
+        assert bai_path.read_bytes() == b"existing-good-bai"
+
+    def test_e2e_alignment_preserves_pair_when_bai_backup_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        runner = FakeCommandRunner()
+        request = make_request(tmp_path, overwrite=True)
+        request.output_path.parent.mkdir(parents=True)
+        request.output_path.write_bytes(b"existing-good-bam")
+        bai_path = Path(f"{request.output_path}.bai")
+        bai_path.write_bytes(b"existing-good-bai")
+        wrapper = make_wrapper(runner)
+        real_replace = wrapper._replace_path
+
+        def fail_bai_backup(source: Path, destination: Path) -> None:
+            if source == bai_path and destination.name.endswith(".backup"):
+                raise OSError("simulated BAI backup failure")
+            real_replace(source, destination)
+
+        monkeypatch.setattr(wrapper, "_replace_path", fail_bai_backup)
+        with pytest.raises(OutputValidationError, match="publish validated BAM/BAI"):
+            wrapper.run(request)
+
         assert request.output_path.read_bytes() == b"existing-good-bam"
         assert bai_path.read_bytes() == b"existing-good-bai"
 
