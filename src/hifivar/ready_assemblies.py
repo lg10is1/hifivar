@@ -231,6 +231,8 @@ def _read_manifest_bytes(path: Path) -> tuple[bytes, str]:
             data = stream.read(_MANIFEST_LIMIT + 1)
             if len(data) > _MANIFEST_LIMIT:
                 raise InputValidationError("Ready assembly manifest exceeds the 8 MiB limit.")
+            if b"\x00" in data:
+                raise InputValidationError("Cannot read ready assembly manifest containing a NUL byte.")
             if _identity(before) != _identity(os.fstat(stream.fileno())) or _identity(before) != _identity(Path(path).stat()):
                 raise InputValidationError("Ready assembly manifest changed during validation.")
     except OSError as error:

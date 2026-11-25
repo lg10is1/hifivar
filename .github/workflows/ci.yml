@@ -42,7 +42,8 @@ jobs:
         run: python -m pytest tests/unit -p no:cacheprovider
       - name: Unit, fake-tool, CLI, package, and Snakemake smoke tests
         if: matrix.python != '3.10'
-        run: python -m pytest -p no:cacheprovider
+        # Keep nested workflow fixtures within Windows path-length limits.
+        run: python -m pytest -p no:cacheprovider --basetemp "${{ runner.temp }}/hf"
       - name: Installed resource smoke
         run: python -c "from hifivar.package_resources import installed_workflow_root; assert installed_workflow_root().joinpath('Snakefile').is_file()"
 
