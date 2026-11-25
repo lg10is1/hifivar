@@ -1,0 +1,37 @@
+name: Summarize HiFiVar RC5 test failures
+
+on:
+  push:
+    branches: [release/rc5-diagnostics]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  summaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Read only failing test summaries
+        run: |
+          for job in 138947419462 138947419908; do
+            gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/$job" --jq '[.status,.conclusion] | @tsv'
+            if gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/$job/logs" > "$RUNNER_TEMP/rc5-$job.txt"; then
+              python - "$job" "$RUNNER_TEMP/rc5-$job.txt" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+          job, path = sys.argv[1:]
+          lines = Path(path).read_text(errors="replace").splitlines()
+          for line in lines:
+              message = re.sub(r"^\S+Z\s+", "", line)
+              if not (message.startswith(("FAILED ", "ERROR ", "E   "))):
+                  continue
+              message = re.sub(r"\x1b\[[0-9;]*m", "", message)
+              print("::notice title=RC5 job " + job + "::" + message.replace("%", "%25")[:700])
+          PY
+            fi
+          done
