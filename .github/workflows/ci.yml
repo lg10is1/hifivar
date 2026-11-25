@@ -2,6 +2,7 @@ name: HiFiVar lightweight CI
 
 on:
   push:
+    branches-ignore: [release/rc5-diagnostics]
   pull_request:
 
 permissions:

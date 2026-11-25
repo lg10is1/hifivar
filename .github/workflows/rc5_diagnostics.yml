@@ -1,45 +1,54 @@
-name: Record HiFiVar RC5 CI diagnosis
+name: Diagnose HiFiVar Python 3.10 compatibility
 
 on:
   push:
     branches: [release/rc5-diagnostics]
 
 permissions:
-  actions: read
   contents: write
 
+env:
+  PYTHONUTF8: '1'
+
 jobs:
-  summaries:
+  python310:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    env:
-      GH_TOKEN: ${{ github.token }}
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v7
-      - name: Capture only failed synthetic-test names
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+      - name: Install the core test environment
+        run: python -m pip install --upgrade pip && python -m pip install '.[dev]'
+      - name: Reproduce Python 3.10 core test results
+        run: python -m pytest tests/unit -q -p no:cacheprovider --tb=short --junitxml="$RUNNER_TEMP/rc5-tests.xml"
+      - name: Record core test status and test names
+        if: always()
         run: |
-          printf '# RC5 validation diagnostics\n\n' > RC5_CI_DIAGNOSIS.md
-          for job in 138947419462 138947419908; do
-            printf '## CI job %s\n\n' "$job" >> RC5_CI_DIAGNOSIS.md
-            gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/$job" --jq '[.status,.conclusion] | join(" ")' >> RC5_CI_DIAGNOSIS.md
-            if gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/$job/logs" > "$RUNNER_TEMP/rc5-$job.txt"; then
-              python - "$RUNNER_TEMP/rc5-$job.txt" <<'PY' >> RC5_CI_DIAGNOSIS.md
-          import re, sys
+          python - "$RUNNER_TEMP/rc5-tests.xml" <<'PY' > RC5_CI_310.md
+          import re
+          import sys
+          import xml.etree.ElementTree as ET
           from pathlib import Path
-          text = Path(sys.argv[1]).read_text(errors="replace")
-          text = re.sub(r"\x1b\[[0-9;]*m", "", text)
-          tests = sorted(set(re.findall(r"(?:FAILED|ERROR) (tests[/\\][a-zA-Z0-9_/\\.]+::[a-zA-Z0-9_]+)", text)))
-          print(f"Log parsed ({len(text)} bytes).")
-          for name in tests:
-              print(f"- {name}")
+          print("# Python 3.10 core test results")
+          report = Path(sys.argv[1])
+          if not report.is_file():
+              print("\nThe test runner did not produce results.")
+          else:
+              tree = ET.parse(report)
+              suite = tree.find(".//testsuite")
+              print()
+              for name in ("tests", "failures", "errors", "skipped"):
+                  print(f"- {name}: {int(suite.attrib.get(name, '0'))}")
+              for case in tree.findall(".//testcase"):
+                  if case.find("failure") is None and case.find("error") is None:
+                      continue
+                  name = re.sub(r"[^A-Za-z0-9_.]", "", case.attrib.get("classname", ""))
+                  method = re.sub(r"[^A-Za-z0-9_.]", "", case.attrib.get("name", "").split("[", 1)[0])
+                  print(f"- {name}::{method}")
           PY
-            else
-              printf 'Log download unavailable.\n' >> RC5_CI_DIAGNOSIS.md
-            fi
-            printf '\n' >> RC5_CI_DIAGNOSIS.md
-          done
+          git add RC5_CI_310.md
           git -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
-            add RC5_CI_DIAGNOSIS.md
-          git -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
-            commit -m "Record isolated RC5 test identifiers"
+            commit -m "Record Python 3.10 test outcome"
           git push origin HEAD:refs/heads/release/rc5-diagnostics
