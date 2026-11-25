@@ -1,0 +1,18 @@
+# Replace paths with actual explicitly selected and reference-validated inputs.
+schema_version: 1
+selection_file: selected_variants.tsv
+reference:
+  fasta: /your/project/reference/GRCh38.fa
+  build: GRCh38
+alphagenome:
+  model_version: ALL_FOLDS
+  requested_modalities: [RNA_SEQ, ATAC]
+  ontology_terms: [UBERON:0000955]
+  sequence_length: 1048576
+  credential_env: HIFIVAR_ALPHAGENOME_API_KEY
+  max_variants: 20
+  max_rows_per_variant: 100000
+  max_allele_length: 10000
+  connect_timeout_seconds: 15
+  rpc_timeout_seconds: 60
+data_sharing_consent: false

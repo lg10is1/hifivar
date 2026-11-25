@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 import yaml
 
 from hifivar.command import CommandResult
@@ -118,7 +119,16 @@ def wrappers(
     )
 
 
-def test_complete_phase2_mixed_path_with_mock_tools(tmp_path: Path) -> None:
+def _assert_phase2_executable_scope(commands: list[tuple[str, ...]]) -> None:
+    """Constrain executable identity, not arbitrary input/output path text."""
+    assert commands and all(command for command in commands)
+    assert {command[0] for command in commands} == {"pbmm2", "samtools"}
+
+
+@pytest.mark.parametrize("path_label", ["neutral", "trgt_public_consumer", "sawfish", "deepvariant"])
+def test_complete_phase2_mixed_path_with_mock_tools(tmp_path: Path, path_label: str) -> None:
+    tmp_path = tmp_path / path_label
+    tmp_path.mkdir()
     context = build_context(tmp_path, mixed=True)
     runner = FakeBioinformaticsRunner()
     pbmm2, samtools = wrappers(runner)
@@ -151,11 +161,7 @@ def test_complete_phase2_mixed_path_with_mock_tools(tmp_path: Path) -> None:
     executed = [command for command in runner.commands if "--version" not in command]
     assert sum(command[0] == "pbmm2" for command in executed) == 1
     assert sum(command[0] == "samtools" for command in executed) == 1
-    assert all(
-        forbidden not in " ".join(command).lower()
-        for command in executed
-        for forbidden in ("deepvariant", "sniffles", "sawfish", "trgt")
-    )
+    _assert_phase2_executable_scope(runner.commands)
 
     json_path = report.write_json(tmp_path / "报告" / "phase2.json")
     yaml_path = report.write_yaml(tmp_path / "报告" / "phase2.yaml")
@@ -163,6 +169,13 @@ def test_complete_phase2_mixed_path_with_mock_tools(tmp_path: Path) -> None:
     yaml_payload = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
     assert json_payload == yaml_payload == report.to_dict()
     assert "输入数据" in json_path.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("unexpected", ["trgt", "sawfish", "run_deepvariant", "python"])
+def test_phase2_scope_guard_rejects_unexpected_executable_tokens(unexpected: str) -> None:
+    commands = [("pbmm2", "--version"), ("samtools", "--version"), (unexpected, "--version")]
+    with pytest.raises(AssertionError):
+        _assert_phase2_executable_scope(commands)
 
 
 def test_complete_phase2_dry_run_plans_both_tools_without_installation(

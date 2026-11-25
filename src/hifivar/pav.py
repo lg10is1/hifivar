@@ -12,7 +12,7 @@ from pathlib import Path
 
 from hifivar.assembly import AssemblyRole
 from hifivar.assembly_sv import AssemblySvArtifact, AssemblySvCaller, AssemblySvRequest, create_assembly_sv_artifact
-from hifivar.command import CommandRunner, format_command
+from hifivar.command import CommandRunner, format_command, _default_stdout_log_path
 from hifivar.exceptions import InputValidationError, OutputValidationError, ToolVersionError
 from hifivar.validation import validate_output_file
 from hifivar.sv import validate_sv_vcf
@@ -180,6 +180,11 @@ class PavWrapper:
             stderr_path: Path | None = None) -> PavResult:
         command, *finalization_commands = self.plan_commands(request)
         finalizers = tuple(finalization_commands)
+        log_paths = ((stderr_path, _default_stdout_log_path(stderr_path),
+                      *(_step_log(stderr_path, item.step) for item in finalizers),
+                      *(_default_stdout_log_path(_step_log(stderr_path, item.step))
+                        for item in finalizers if item.stdout_path is None)) if stderr_path else ())
+        request.validate_reused_inputs(extra_outputs=log_paths, verify=False, require_fresh_work_directory=True)
         planned_selection = PavSvSelection(
             request.work_directory / f"{request.sample_id}.vcf.gz",
             _selection_vcf(request),
@@ -206,6 +211,7 @@ class PavWrapper:
         pav_version = self._require_pav_version()
         adapter_version = self.detect_adapter_version()
         finalizer_versions = self.detect_finalizer_versions()
+        request.validate_reused_inputs(extra_outputs=log_paths, verify=False, require_fresh_work_directory=True)
         self._prepare(request)
         result = self.runner.run(command.args, cwd=request.work_directory, stderr_path=stderr_path)
         runtime_seconds = result.duration_seconds
@@ -277,6 +283,7 @@ class PavWrapper:
         return version
 
     def _validate_inputs(self, request: AssemblySvRequest) -> None:
+        request.validate_reused_inputs()
         validate_output_file(request.reference.fasta)
         validate_output_file(request.reference.fai)
         if not self.snakefile.exists() or not self.snakefile.is_file():

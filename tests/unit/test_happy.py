@@ -1,6 +1,7 @@
 from __future__ import annotations
 import gzip
 import json
+import os
 from pathlib import Path
 import pytest
 from hifivar.benchmark import BenchmarkRegion, TruthSet
@@ -61,6 +62,62 @@ def test_command_is_deterministic_and_uses_command_runner(tmp_path: Path) -> Non
     assert result.to_dict()["version_source"] == "command"
     metrics={(m.stratum,m.name):m.value for m in result.metrics}
     assert metrics[("SNP","f1")] == pytest.approx(8/9)
+
+
+def test_happy_subprocess_receives_only_safe_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ALPHA_GENOME_API_KEY", "test-only-secret")
+    monkeypatch.setenv("SOME_UNRELATED_TOKEN", "another-test-secret")
+    monkeypatch.setenv("OMP_NUM_THREADS", "2")
+    item = request(tmp_path)
+    runner = Runner(item)
+    HappyWrapper(runner=runner).run(item)
+    assert len(runner.calls) == 2
+    for _, kwargs in runner.calls:
+        assert kwargs["inherit_env"] is False
+        assert "ALPHA_GENOME_API_KEY" not in kwargs["env"]
+        assert "SOME_UNRELATED_TOKEN" not in kwargs["env"]
+        assert kwargs["env"]["OMP_NUM_THREADS"] == "2"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits required")
+def test_happy_runinfo_is_owner_readable_only(tmp_path: Path) -> None:
+    item = request(tmp_path)
+    runner = Runner(item)
+    original_run = runner.run
+
+    def run_with_runinfo(command, **kwargs):
+        result = original_run(command, **kwargs)
+        if "--version" not in command:
+            runinfo = Path(f"{item.output_prefix}.runinfo.json")
+            runinfo.write_text("{}\n", encoding="utf-8")
+            runinfo.chmod(0o644)
+        return result
+
+    runner.run = run_with_runinfo
+    HappyWrapper(runner=runner).run(item)
+    assert Path(f"{item.output_prefix}.runinfo.json").stat().st_mode & 0o077 == 0
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits required")
+def test_happy_failed_run_also_restricts_runinfo(tmp_path: Path) -> None:
+    item = request(tmp_path)
+    runner = Runner(item)
+    original_run = runner.run
+
+    def fail_after_runinfo(command, **kwargs):
+        if "--version" in command:
+            return original_run(command, **kwargs)
+        runinfo = Path(f"{item.output_prefix}.runinfo.json")
+        runinfo.write_text("{}\n", encoding="utf-8")
+        runinfo.chmod(0o644)
+        raise RuntimeError("simulated hap.py failure")
+
+    runner.run = fail_after_runinfo
+    with pytest.raises(RuntimeError, match="simulated hap.py failure"):
+        HappyWrapper(runner=runner).run(item)
+    assert Path(f"{item.output_prefix}.runinfo.json").stat().st_mode & 0o077 == 0
 
 
 def test_dry_run_creates_no_output_or_stratification(tmp_path: Path) -> None:

@@ -1,5 +1,7 @@
 # Output layout
 
+[简体中文](zh_CN/outputs.md)
+
 Configured `paths.outdir` contains retained results; `paths.workdir` contains
 rebuildable intermediates. Logs remain under `logs/` unless a module documents
 another path.

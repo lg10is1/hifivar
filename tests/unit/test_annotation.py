@@ -45,8 +45,8 @@ def files(tmp_path: Path):
     vcf = tmp_path / "variants.vcf"
     vcf.write_text(
         "##fileformat=VCFv4.3\n##contig=<ID=chr1,length=1000>\n"
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
-        "chr1\t100\tsv1\tN\t<DEL>\t.\tPASS\tSVTYPE=DEL;END=150\n",
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\n"
+        "chr1\t100\tsv1\tN\t<DEL>\t.\tPASS\tSVTYPE=DEL;END=150\tGT\t0/1\n",
         encoding="utf-8",
     )
     database = tmp_path / "数据库"
@@ -89,7 +89,9 @@ class FakeToolRunner:
             )
         if "--output_file" in args:
             Path(args[args.index("--output_file") + 1]).write_text(
-                "#Uploaded_variation\tLocation\tConsequence\nsv1\tchr1:100\tfeature\n",
+                "#Uploaded_variation\tLocation\tAllele\tGene\tFeature\tFeature_type\tConsequence\t"
+                "cDNA_position\tCDS_position\tProtein_position\tAmino_acids\tCodons\tExisting_variation\n"
+                "sv1\tchr1:100\t<DEL>\t-\t-\t-\tintergenic_variant\t-\t-\t-\t-\t-\t-\n",
                 encoding="utf-8",
             )
         return CommandResult(args, 0, "", "", 0.2, None, True)

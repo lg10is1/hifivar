@@ -1,4 +1,6 @@
 from pathlib import Path
+import struct
+import zlib
 
 import pytest
 
@@ -18,8 +20,21 @@ from hifivar.review import (
 )
 
 
+def png_fixture(width=64, height=64):
+    """Synthetic decodable PNG; no biological or native IGV evidence."""
+    def chunk(kind, payload):
+        return struct.pack('>I', len(payload)) + kind + payload + struct.pack('>I', zlib.crc32(kind + payload) & 0xffffffff)
+    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress((b'\x00' + b'\x80\x80\x80' * width) * height)) + chunk(b'IEND', b''))
+
+
+PNG = png_fixture()
+
+
 def inputs(tmp_path: Path):
-    reference = tmp_path / "参考 genome.fa"
+    # Native IGV 2.19.8 does not reliably select whitespace reference paths.
+    # Unicode and whitespace output/track paths retain their own test coverage.
+    reference = tmp_path / "参考_genome.fa"
     reference.write_text(">chr1\n" + "A" * 1000 + "\n>chr2\n" + "C" * 1000 + "\n", encoding="utf-8")
     Path(f"{reference}.fai").write_text(
         "chr1\t1000\t6\t1000\t1001\nchr2\t1000\t1013\t1000\t1001\n",
@@ -30,9 +45,10 @@ def inputs(tmp_path: Path):
     Path(f"{bam}.bai").write_bytes(b"BAI")
     vcf = tmp_path / "source.vcf"
     vcf.write_text(
-        "##fileformat=VCFv4.3\n##contig=<ID=chr1,length=1000>\n"
+        "##fileformat=VCFv4.3\n##contig=<ID=chr1,length=1000>\n##contig=<ID=chr2,length=1000>\n"
         "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\n"
-        "chr1\t100\tv1\tA\tT\t.\tPASS\t.\tGT\t0/1\n",
+        "chr1\t100\tv1\tA\tT\t.\tPASS\t.\tGT\t0/1\n"
+        "chr1\t100\tsource-v1\tA\tA[chr2:500[\t.\tPASS\tSVTYPE=BND\tGT\t0/1\n",
         encoding="utf-8",
     )
     return reference, bam, vcf
@@ -78,6 +94,7 @@ def test_bnd_has_two_independent_loci(tmp_path):
     item = target(
         tmp_path,
         VariantClass.BND,
+        end=100,
         mate_contig="chr2",
         mate_position=500,
     )
@@ -123,7 +140,7 @@ class FakeIgvRunner:
                 snapshot_root.mkdir(parents=True, exist_ok=True)
             elif line.startswith("snapshot "):
                 assert snapshot_root is not None
-                (snapshot_root / line.split(" ", 1)[1]).write_bytes(b"PNG")
+                (snapshot_root / line.split(" ", 1)[1]).write_bytes(PNG)
         return CommandResult(args, 0, "", "", 0.2, None, True)
 
 
@@ -143,10 +160,15 @@ def test_batch_generation_unicode_paths_and_evidence(tmp_path):
     assert report.status is Phase10Status.COMPLETED
     assert report.igv.status is IgvRunStatus.COMPLETED
     text = (item.output_directory / "review.igv.batch").read_text(encoding="utf-8")
-    assert 'genome "' in text and 'load "' in text
+    assert 'load "' in text
+    if any(c.isspace() for c in str(item.reference_fasta.absolute())):
+        assert report.igv.plan.args[1:3] == ('--genome',str(item.reference_fasta.absolute()))
+        assert not any(line.startswith('genome ') for line in text.splitlines())
+    else:
+        assert f'genome {item.reference_fasta.absolute()}' in text
     assert "goto chr1:90-110" in text
     assert "snapshot R-SNV.locus01.png" in text
-    assert item.screenshot_paths[0].read_bytes() == b"PNG"
+    assert item.screenshot_paths[0].read_bytes() == PNG
     assert report.manifest.results[0].evidence.target.source_vcf == item.source_vcf
 
 

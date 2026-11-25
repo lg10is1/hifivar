@@ -1,5 +1,7 @@
 # Reproducibility
 
+[简体中文](zh_CN/reproducibility.md)
+
 This document describes how to reproduce the HG002 benchmark results
 and verify the integrity of all benchmark artifacts.
 

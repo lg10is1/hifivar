@@ -1,5 +1,7 @@
 # HiFiVar Scientific Figure Rules
 
+[简体中文](PROJECT_VISUAL_RULES.zh-CN.md)
+
 These rules apply to every manuscript, benchmark, architecture, workflow, and
 README figure produced for HiFiVar. They complement the frozen-data and
 provenance requirements in `docs/reproducibility.md`.

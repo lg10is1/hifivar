@@ -1,5 +1,7 @@
 # HiFiVar development verification
 
+[简体中文](DEVELOPMENT.zh-CN.md)
+
 HiFiVar is developed cross-platform, but external bioinformatics tools and the
 production Snakemake workflow target Linux/HPC. Windows verification uses unit,
 fake-executable, CLI, and Snakemake smoke tests; it does not claim real-tool

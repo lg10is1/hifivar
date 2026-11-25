@@ -14,6 +14,7 @@ from hifivar.annotation import (
     AnnotationSource,
 )
 from hifivar.command import CommandRunner
+from hifivar.annotation_paths import protect_annotation_outputs
 from hifivar.exceptions import InputValidationError, OutputValidationError
 from hifivar.validation import validate_output_file, validate_vcf
 
@@ -116,6 +117,15 @@ class AnnovarWrapper:
         stdout_path: Path | None = None,
         stderr_path: Path | None = None,
     ) -> AnnotationResult:
+        protect_annotation_outputs(
+            outputs={"multianno_tsv": request.output_tsv, "multianno_vcf": request.output_vcf,
+                     "stdout": stdout_path, "stderr": stderr_path},
+            immutable_files=(request.input.source_vcf, Path(f"{request.input.source_vcf}.tbi"),
+                             Path(f"{request.input.source_vcf}.csi"),
+                             request.input.reference.fasta, request.input.reference.fai),
+            resource_directories=(request.database_root,), output_prefix=request.output_prefix,
+            executable=self.executable, protect_perl_helpers=True,
+        )
         command = self.build_command(request)
         if dry_run:
             self.runner.run(command, dry_run=True)

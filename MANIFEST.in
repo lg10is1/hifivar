@@ -1,9 +1,12 @@
-include LICENSE README.md ARCHITECTURE.md DEVELOPMENT.md CHANGELOG.md RELEASE_CHECKLIST.md
+include LICENSE README.md README.zh-CN.md ARCHITECTURE.md DEVELOPMENT.md CHANGELOG.md RELEASE_CHECKLIST.md
+include ARCHITECTURE.zh-CN.md DEVELOPMENT.zh-CN.md CHANGELOG.zh-CN.md RELEASE_CHECKLIST.zh-CN.md
+include CONTRIBUTING.zh-CN.md SECURITY.zh-CN.md PROJECT_VISUAL_RULES.md PROJECT_VISUAL_RULES.zh-CN.md
 include CITATION.cff CONTRIBUTING.md SECURITY.md environment.yml Dockerfile .dockerignore
 recursive-include docs *.md
 prune docs/agent_handoffs
 recursive-include workflow Snakefile *.smk *.py *.yaml
 recursive-include src/hifivar/resources *.yaml
+recursive-include src/hifivar/resources/policies *.json
 recursive-include conda-recipe *.yaml *.sh *.bat
 recursive-include containers *.def *.md
 recursive-include examples *.yaml *.tsv *.md

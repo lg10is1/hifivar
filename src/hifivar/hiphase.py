@@ -1,4 +1,4 @@
-"""HiPhase single-sample small-variant phasing wrapper."""
+"""HiPhase single-sample phasing with optional, separately retained SV/TR VCFs."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from enum import Enum
 from pathlib import Path
 
 from hifivar import validation
-from hifivar.command import CommandRunner, format_command
-from hifivar.exceptions import OutputValidationError, ToolVersionError
+from hifivar.command import CommandRunner, _default_stdout_log_path, format_command
+from hifivar.exceptions import InputValidationError, OutputValidationError, ToolVersionError
 from hifivar.logging_utils import get_logger
 from hifivar.phasing import (
     PhasedVariantArtifact,
@@ -85,32 +85,29 @@ class HiPhaseWrapper:
         redact_values: Collection[str] | None = None,
     ) -> tuple[PhasingCommandPlan, ...]:
         self._validate_inputs(request)
-        hiphase = (
+        hiphase = [
             self.executable,
             "--bam",
             str(request.alignment.path.absolute()),
-            "--vcf",
-            str(request.small_variants.vcf_path.absolute()),
-            "--output-vcf",
-            str(request.output_vcf.absolute()),
+        ]
+        for _, source, _, output, _, _ in request.vcf_pairs:
+            hiphase.extend(("--vcf", str(source.absolute()), "--output-vcf", str(output.absolute())))
+        hiphase.extend((
             "--reference",
             str(request.alignment.reference.fasta.absolute()),
             "--threads",
             str(request.resources.threads),
             "--sample-name",
             request.sample_id,
-            "--disable-global-realignment",
-        )
-        tabix = (
-            self.tabix_executable,
-            "-f",
-            "-p",
-            "vcf",
-            str(request.output_vcf.absolute()),
-        )
+        ))
+        if not request.use_global_realignment:
+            hiphase.append("--disable-global-realignment")
+        commands = [tuple(hiphase)]
+        commands.extend((self.tabix_executable, "-f", "-p", "vcf", str(output.absolute()))
+                        for _, _, _, output, _, _ in request.vcf_pairs)
         return tuple(
             PhasingCommandPlan(args, format_command(args, redact_values=redact_values))
-            for args in (hiphase, tabix)
+            for args in commands
         )
 
     def detect_version(self) -> str:
@@ -132,6 +129,7 @@ class HiPhaseWrapper:
         stderr_path: Path | None = None,
     ) -> PhasingResult:
         commands = self.plan_commands(request)
+        self._validate_log_paths(request, stderr_path, len(commands))
         if dry_run:
             for command in commands:
                 self.runner.run(command.args, dry_run=True)
@@ -140,6 +138,7 @@ class HiPhaseWrapper:
         version = self.detect_version()
         self.runner.require_executable(self.tabix_executable)
         self._validate_inputs(request)
+        self._validate_log_paths(request, stderr_path, len(commands))
         request.output_vcf.parent.mkdir(parents=True, exist_ok=True)
         total = 0.0
         for index, command in enumerate(commands):
@@ -149,7 +148,8 @@ class HiPhaseWrapper:
             )
             total += result.duration_seconds
             if index == 0:
-                validation.validate_output_file(request.output_vcf)
+                for _, _, _, output, _, _ in request.vcf_pairs:
+                    validation.validate_output_file(output)
 
         artifact = validate_phased_variant_output(
             request,
@@ -168,6 +168,7 @@ class HiPhaseWrapper:
 
     @staticmethod
     def _validate_inputs(request: PhasingRequest) -> None:
+        request.validate_output_safety()
         validation.validate_file(request.alignment.path, require_nonempty=True)
         if request.alignment.index_path is None:
             raise OutputValidationError("HiPhase BAM index is missing.")
@@ -185,6 +186,33 @@ class HiPhaseWrapper:
         )
         validation.validate_file(request.alignment.reference.fasta, require_nonempty=True)
         validation.validate_file(request.alignment.reference.fai, require_nonempty=True)
+        if request.additional_inputs:
+            from hifivar.joint_phasing import validate_joint_source_headers
+            validate_joint_source_headers(request)
+
+    def _validate_log_paths(self, request: PhasingRequest, stderr_path: Path | None, count: int) -> None:
+        """Protect source, output and executable paths, including implicit stdout logs."""
+        if stderr_path is None:
+            return
+        protected = list(request.protected_input_paths)
+        protected.extend(p for _, _, _, output, index, _ in request.vcf_pairs for p in (output, index))
+        for executable in (self.executable, self.tabix_executable):
+            path = Path(executable).expanduser()
+            if path.is_file():
+                protected.append(path)
+        actual = []
+        for index in range(count):
+            log = _numbered_log(stderr_path, index, count)
+            actual.extend((log, _default_stdout_log_path(log)))
+        for path in [Path(stderr_path), *actual]:
+            if any(path.resolve() == p.resolve() or (path.exists() and p.exists() and path.samefile(p))
+                   for p in protected):
+                raise InputValidationError("HiPhase log path aliases a protected source, output, or executable.")
+        if len({p.resolve() for p in actual}) != len(actual) or any(
+            a.exists() and b.exists() and a.samefile(b)
+            for i, a in enumerate(actual) for b in actual[i + 1:]
+        ):
+            raise InputValidationError("HiPhase log paths must be distinct.")
 
 
 def _numbered_log(path: Path | None, index: int, count: int) -> Path | None:

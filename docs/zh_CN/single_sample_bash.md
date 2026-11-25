@@ -1,4 +1,6 @@
-# HiFiVar 0.1.0rc2 单样本 Bash 运行指南
+# HiFiVar 0.1.0rc5 单样本 Bash 运行指南
+
+[English](../single_sample_bash.md)
 
 本文给出一个可复制的 Linux 单样本运行流程，使用一个未比对的 PacBio
 HiFi uBAM 和 GRCh38 reference。它适用于：
@@ -9,9 +11,9 @@ HiFi uBAM 和 GRCh38 reference。它适用于：
 
 不要在共享 HPC 登录节点直接执行全基因组比对或变异检测。
 
-## 1. 当前 RC2 的输入边界
+## 1. 独立调用 DAG 的输入边界
 
-公开版 `0.1.0rc2` 的 Snakemake calling DAG 接受已经排序并建立索引的
+公开版 `0.1.0rc5` 的 Snakemake calling DAG 接受已经排序并建立索引的
 BAM/CRAM，不直接把 uBAM 接入 calling DAG。因此，单样本完整路径是：
 
 ```text
@@ -48,7 +50,7 @@ export RUN_ROOT="/work/hifivar/realdata_validation/single_${SAMPLE_ID}"
 ```bash
 export CONDA_ROOT="<CONDA或MINIFORGE安装目录>"
 export PBMM2_ENV="<已经真实验证的pbmm2环境名>"
-export HIFIVAR_ENV="hifivar-rc2-public-test"
+export HIFIVAR_ENV="hifivar-rc5-public-test"
 export DEEPVARIANT_IMAGE="<DeepVariant-1.10.0的已验证SIF绝对路径>"
 export THREADS=16
 export SAMTOOLS_INDEX_THREADS=4
@@ -188,7 +190,7 @@ column -t -s $'\t' "$RUN_ROOT/configs/samples.tsv"
 
 ```yaml
 project:
-  name: example_sample_a_rc2
+  name: example_sample_a_rc5
 
 reference:
   fasta: /data/project/references/GRCh38.fa

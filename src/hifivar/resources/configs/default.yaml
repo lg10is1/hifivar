@@ -22,8 +22,19 @@ logging:
 
 workflow:
   preset: standard
+  # hifivar run: total scheduler memory budget (not an OS memory limit).
+  memory_mb: 64000
+  samtools_executable: samtools
+  # Optional explicit GENERATED/EXTERNAL selectors for post-calling annotation
+  # and cohort. No future VCF path is treated as an already successful call.
+  downstream_source_plan: null
 
 alignment:
+  # Opt-in run preparation; existing indexed BAM mode remains the default.
+  enabled: false
+  pbmm2_executable: pbmm2
+  minimap2_executable: minimap2
+  pbmm2_sort_threads: 1
   tool: pbmm2
   output_format: bam
   threads: 8
@@ -40,6 +51,9 @@ small:
   execution_mode: native
   deepvariant_executable: run_deepvariant
   deepvariant_image: null
+  # Optional single interval, 1-based inclusive (e.g. chr21:43770001-43785000).
+  # null preserves whole-reference calling. Not a BED path or a Phase 15 option.
+  region: null
   model_type: PACBIO
   threads: 16
   # Default global capacity for the deepvariant_slots Snakemake resource.
@@ -52,6 +66,8 @@ small:
 assembly_sv:
   enabled: false
   overwrite: false
+  # Explicit existing haplotype FASTA TSV; mutually exclusive with assembly.enabled.
+  input_manifest: null
   pav:
     enabled: true
     executable: snakemake
@@ -125,8 +141,13 @@ sv:
     runtime_minutes: 1440
     max_dist: 1000
     distance_type: linear
+    minimum_caller_support: 1
     overwrite: false
     input_vcfs: {}
+    input_identity:
+      enabled: false
+    bnd_representation:
+      enabled: false
 
 tr:
   enabled: false
@@ -147,6 +168,11 @@ phasing:
   backend: hiphase
   executable: hiphase
   tabix_executable: tabix
+  # Opt-in joint phasing; keep source categories in separate phased VCFs.
+  sv_caller: null
+  include_tr: false
+  # auto preserves small-only disabling; joint SV/TR enables global realignment.
+  global_realignment: auto
   threads: 16
   memory_mb: 32000
   runtime_minutes: 1440
@@ -154,6 +180,9 @@ phasing:
 
 assembly:
   enabled: false
+  # Optional independent HiFi FASTQ TSV, required for BAM/uBAM primary inputs.
+  # null reuses the primary sample sheet only when every sample is FASTQ.
+  sample_sheet: null
   backend: hifiasm
   executable: hifiasm
   threads: 32
@@ -164,6 +193,7 @@ assembly:
 review:
   enabled: false
   selection_file: null
+  source_plan: null
   igv_executable: igv.sh
   flank_bp: 500
   threads: 1
@@ -237,6 +267,7 @@ cohort:
 
 benchmark:
   enabled: false
+  source_plan: null
   benchmark_id: null
   sample_id: null
   overwrite: false

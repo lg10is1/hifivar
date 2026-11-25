@@ -1,5 +1,7 @@
 # Development
 
+[简体中文](zh_CN/DEVELOPMENT.md)
+
 HiFiVar is developed with Python 3 using a `src/` package layout. Lightweight unit, configuration, CLI, and mock tests may run on Windows; workflow integration and external bioinformatics tools target Linux/HPC.
 
 Install the current development package and run its tests with:

@@ -1,6 +1,7 @@
 """Config-driven single-sample DeepVariant rules for Phase 3."""
 
 from hifivar.alignment_postprocess import find_alignment_index
+from hifivar.calling_region import validate_calling_region
 from hifivar.context import AnalysisContext
 from hifivar.exceptions import WorkflowError
 from hifivar.sample import InputType
@@ -29,6 +30,7 @@ SMALL_ALIGNMENTS = {}
 SMALL_ALIGNMENT_INDEXES = {}
 if SMALL_ENABLED:
     SMALL_CONTEXT = AnalysisContext.from_config(config)
+    validate_calling_region(SMALL_CONFIG.get("region"), SMALL_CONTEXT.reference)
     for record in SMALL_CONTEXT.samples:
         sample = record.sample
         if sample.input.input_type not in (InputType.BAM, InputType.CRAM):
@@ -73,29 +75,31 @@ WORKFLOW_TARGETS = [
 ]
 
 
-rule deepvariant_small:
-    input:
-        reference=lambda wildcards: str(SMALL_CONTEXT.reference.fasta),
-        reference_index=lambda wildcards: str(SMALL_CONTEXT.reference.fai),
-        alignment=lambda wildcards: SMALL_ALIGNMENTS[wildcards.sample],
-        alignment_index=lambda wildcards: SMALL_ALIGNMENT_INDEXES[wildcards.sample]
-    output:
-        vcf=SMALL_VCF_PATTERN,
-        gvcf=SMALL_GVCF_PATTERN,
-        vcf_index=f"{SMALL_VCF_PATTERN}.tbi",
-        gvcf_index=f"{SMALL_GVCF_PATTERN}.tbi"
-    log:
-        (LOG_ROOT / "small" / "{sample}.deepvariant.log").as_posix()
-    threads:
-        SMALL_CONFIG.get("threads", 16)
-    resources:
-        mem_mb=SMALL_CONFIG.get("memory_mb", 64000),
-        runtime_min=SMALL_CONFIG.get("runtime_minutes", 2880),
-        deepvariant_slots=1
-    params:
-        intermediate=lambda wildcards: (
-            WORK_ROOT / "deepvariant" / wildcards.sample
-        ).as_posix(),
-        tmpdir=lambda wildcards: _small_tmpdir(wildcards.sample)
-    script:
-        "../scripts/run_deepvariant.py"
+if SMALL_ENABLED:
+    rule deepvariant_small:
+        input:
+            reference=lambda wildcards: str(SMALL_CONTEXT.reference.fasta),
+            reference_index=lambda wildcards: str(SMALL_CONTEXT.reference.fai),
+            alignment=lambda wildcards: SMALL_ALIGNMENTS[wildcards.sample],
+            alignment_index=lambda wildcards: SMALL_ALIGNMENT_INDEXES[wildcards.sample]
+        output:
+            vcf=SMALL_VCF_PATTERN,
+            gvcf=SMALL_GVCF_PATTERN,
+            vcf_index=f"{SMALL_VCF_PATTERN}.tbi",
+            gvcf_index=f"{SMALL_GVCF_PATTERN}.tbi"
+        log:
+            (LOG_ROOT / "small" / "{sample}.deepvariant.log").as_posix()
+        threads:
+            SMALL_CONFIG.get("threads", 16)
+        resources:
+            mem_mb=SMALL_CONFIG.get("memory_mb", 64000),
+            runtime_min=SMALL_CONFIG.get("runtime_minutes", 2880),
+            deepvariant_slots=1
+        params:
+            intermediate=lambda wildcards: (
+                WORK_ROOT / "deepvariant" / wildcards.sample
+            ).as_posix(),
+            tmpdir=lambda wildcards: _small_tmpdir(wildcards.sample),
+            region=SMALL_CONFIG.get("region")
+        script:
+            "../scripts/run_deepvariant.py"

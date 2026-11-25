@@ -8,7 +8,7 @@ from enum import Enum
 from pathlib import Path
 
 from hifivar.assembly_sv import AssemblySvArtifact, AssemblySvCaller, AssemblySvRequest, create_assembly_sv_artifact
-from hifivar.command import CommandRunner, format_command
+from hifivar.command import CommandRunner, format_command, _default_stdout_log_path
 from hifivar.exceptions import InputValidationError, OutputValidationError, ToolVersionError
 from hifivar.validation import validate_output_file
 
@@ -104,11 +104,17 @@ class SvimAsmWrapper:
     def run(self, request: AssemblySvRequest, *, dry_run: bool = False,
             stderr_path: Path | None = None) -> SvimAsmResult:
         commands = self.plan_commands(request)
+        log_paths = tuple(path for item in commands for path in (
+            ((_step_log(stderr_path, item.step),) if item.stdout_path is not None else
+             (_step_log(stderr_path, item.step), _default_stdout_log_path(_step_log(stderr_path, item.step))))
+            if stderr_path else ()))
+        request.validate_reused_inputs(extra_outputs=log_paths, verify=False, require_fresh_work_directory=True)
         if dry_run:
             for item in commands:
                 self.runner.run(item.args, dry_run=True, stdout_path=item.stdout_path)
             return SvimAsmResult(request, SvimAsmResultStatus.PLANNED, commands)
         versions = self.detect_versions()
+        request.validate_reused_inputs(extra_outputs=log_paths, verify=False, require_fresh_work_directory=True)
         self._prepare(request)
         runtime = 0.0
         for item in commands:
@@ -137,6 +143,7 @@ class SvimAsmWrapper:
 
     @staticmethod
     def _validate_inputs(request: AssemblySvRequest) -> None:
+        request.validate_reused_inputs()
         validate_output_file(request.reference.fasta)
         validate_output_file(request.reference.fai)
         for assembly in request.assemblies:

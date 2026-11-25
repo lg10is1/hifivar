@@ -1,10 +1,12 @@
 # Multi-sample execution with Slurm
 
-This guide describes a transparent Slurm deployment for HiFiVar `0.1.0rc2`.
+[简体中文](zh_CN/slurm_multi_sample.md)
+
+This guide describes a transparent Slurm deployment for HiFiVar `0.1.0rc5`.
 It uses three PacBio HiFi uBAMs as a concrete example, but the same manifests
 and array pattern scale to larger cohorts.
 
-> HiFiVar `0.1.0rc2` does not include a packaged uBAM/FASTQ alignment rule.
+> HiFiVar `0.1.0rc5` uses indexed alignments in the independent calling DAG. This guide prepares alignments separately.
 > Coordinate-sorted, indexed BAM/CRAM is the input contract of the packaged
 > small-variant, read-SV, TR, and cohort DAG. For PacBio uBAM, run a controlled
 > pbmm2 preprocessing array first and record that boundary in provenance.
@@ -88,7 +90,7 @@ Use a new directory for every run. Never place generated files beside the
 original uBAMs.
 
 ```bash
-export RUN_ROOT="/work/hifivar/realdata_validation/example_rc2_$(date -u +%Y%m%dT%H%M%SZ)"
+export RUN_ROOT="/work/hifivar/realdata_validation/example_rc5_$(date -u +%Y%m%dT%H%M%SZ)"
 export REFERENCE_FASTA="/data/project/references/GRCh38.fa"
 export REFERENCE_BUILD="GRCh38"
 
@@ -307,7 +309,7 @@ and TR only after executables/images/catalogs pass real preflight.
 
 ```yaml
 project:
-  name: example_3sample_rc2
+  name: example_3sample_rc5
 
 reference:
   fasta: /data/project/references/GRCh38.fa
@@ -361,7 +363,7 @@ benchmark:
 Replace every placeholder and validate:
 
 ```bash
-conda activate hifivar-rc2-public-test
+conda activate hifivar-rc5-public-test
 unset PYTHONPATH PYTHONHOME
 
 hifivar --config "$RUN_ROOT/configs/calling.yaml" config validate
@@ -388,8 +390,8 @@ The plugin requires Python 3.11 or newer. Clone the validated Python 3.12
 environment instead of modifying it:
 
 ```bash
-mamba create -n hifivar-rc2-slurm --clone hifivar-rc2-public-test
-conda activate hifivar-rc2-slurm
+mamba create -n hifivar-rc5-slurm --clone hifivar-rc5-public-test
+conda activate hifivar-rc5-slurm
 python -m pip install 'snakemake-executor-plugin-slurm==2.7.1'
 
 snakemake --version
@@ -455,7 +457,7 @@ cluster account, partition, and constraints out of the portable HiFiVar config.
 ## 10. Dry-run and execute with the Slurm plugin
 
 ```bash
-conda activate hifivar-rc2-slurm
+conda activate hifivar-rc5-slurm
 unset PYTHONPATH PYTHONHOME
 
 snakemake \
@@ -505,7 +507,7 @@ If the plugin cannot be provisioned, submit one controller allocation:
 
 set -euo pipefail
 source <CONDA_ROOT>/etc/profile.d/conda.sh
-conda activate hifivar-rc2-public-test
+conda activate hifivar-rc5-public-test
 unset PYTHONPATH PYTHONHOME
 
 ulimit -n 65536 || true
@@ -529,7 +531,7 @@ This runs on one node. Do not confuse `--cores 32` with 32 cluster jobs.
 
 ## 12. Resource starting points
 
-These are RC2 configuration starting points, not universal guarantees. Revise
+These are RC5 configuration starting points, not universal guarantees. Revise
 them only after reviewing `sacct`, tool logs, coverage, and site limits.
 
 | Stage/rule | Jobs for three samples | CPUs/job | Memory/job | Initial walltime |
@@ -583,7 +585,7 @@ Create a separate cohort config:
 ```yaml
 cohort:
   enabled: true
-  cohort_id: EXAMPLE_3SAMPLE_RC2
+  cohort_id: EXAMPLE_3SAMPLE_RC5
   input_manifest: <RUN_ROOT>/configs/cohort_inputs.tsv
   overwrite: false
   small_variants:

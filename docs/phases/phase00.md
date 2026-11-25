@@ -1,5 +1,7 @@
 # Phase 0: Foundation
 
+[中文阶段说明](../zh_CN/phases/phase00.md)
+
 Phase 0 establishes the project skeleton and shared engineering infrastructure before any bioinformatics tool integration.
 
 **Phase 0 status: COMPLETE**

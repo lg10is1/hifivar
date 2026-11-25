@@ -1,5 +1,7 @@
 # Minimal existing-BAM example
 
+[简体中文](README.zh-CN.md)
+
 This example is a template, not bundled scientific data. Replace every `/data`
 and `/work` path with real Linux paths before validation.
 

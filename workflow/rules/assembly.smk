@@ -2,6 +2,7 @@
 
 from hifivar.context import AnalysisContext
 from hifivar.exceptions import WorkflowError
+from hifivar.launcher import build_assembly_context
 from hifivar.sample import InputType
 
 
@@ -16,7 +17,7 @@ if not isinstance(ASSEMBLY_ENABLED, bool):
 ASSEMBLY_SAMPLE_IDS = []
 ASSEMBLY_READS = {}
 if ASSEMBLY_ENABLED:
-    ASSEMBLY_CONTEXT = AnalysisContext.from_config(config)
+    ASSEMBLY_CONTEXT = build_assembly_context(config)
     for record in ASSEMBLY_CONTEXT.samples:
         sample = record.sample
         if sample.input.input_type is not InputType.FASTQ:
@@ -50,25 +51,26 @@ ASSEMBLY_DIRECTORY_PATTERN = (
 WORKFLOW_TARGETS = [*WORKFLOW_TARGETS, *ASSEMBLY_FASTAS]
 
 
-rule hifiasm_assemble:
-    input:
-        reads=lambda wildcards: ASSEMBLY_READS[wildcards.sample]
-    output:
-        primary_gfa=f"{ASSEMBLY_PREFIX_PATTERN}.bp.p_ctg.gfa",
-        hap1_gfa=f"{ASSEMBLY_PREFIX_PATTERN}.bp.hap1.p_ctg.gfa",
-        hap2_gfa=f"{ASSEMBLY_PREFIX_PATTERN}.bp.hap2.p_ctg.gfa",
-        primary_fasta=f"{ASSEMBLY_DIRECTORY_PATTERN}/{{sample}}.primary.fa",
-        hap1_fasta=f"{ASSEMBLY_DIRECTORY_PATTERN}/{{sample}}.hap1.fa",
-        hap2_fasta=f"{ASSEMBLY_DIRECTORY_PATTERN}/{{sample}}.hap2.fa"
-    log:
-        (LOG_ROOT / "assembly" / "{sample}.hifiasm.log").as_posix()
-    threads:
-        ASSEMBLY_CONFIG.get("threads", 32)
-    resources:
-        mem_mb=ASSEMBLY_CONFIG.get("memory_mb", 128000),
-        runtime_min=ASSEMBLY_CONFIG.get("runtime_minutes", 4320)
-    params:
-        output_prefix=ASSEMBLY_PREFIX_PATTERN,
-        assembly_directory=ASSEMBLY_DIRECTORY_PATTERN
-    script:
-        "../scripts/run_hifiasm.py"
+if ASSEMBLY_ENABLED:
+    rule hifiasm_assemble:
+        input:
+            reads=lambda wildcards: ASSEMBLY_READS[wildcards.sample]
+        output:
+            primary_gfa=f"{ASSEMBLY_PREFIX_PATTERN}.bp.p_ctg.gfa",
+            hap1_gfa=f"{ASSEMBLY_PREFIX_PATTERN}.bp.hap1.p_ctg.gfa",
+            hap2_gfa=f"{ASSEMBLY_PREFIX_PATTERN}.bp.hap2.p_ctg.gfa",
+            primary_fasta=f"{ASSEMBLY_DIRECTORY_PATTERN}/{{sample}}.primary.fa",
+            hap1_fasta=f"{ASSEMBLY_DIRECTORY_PATTERN}/{{sample}}.hap1.fa",
+            hap2_fasta=f"{ASSEMBLY_DIRECTORY_PATTERN}/{{sample}}.hap2.fa"
+        log:
+            (LOG_ROOT / "assembly" / "{sample}.hifiasm.log").as_posix()
+        threads:
+            ASSEMBLY_CONFIG.get("threads", 32)
+        resources:
+            mem_mb=ASSEMBLY_CONFIG.get("memory_mb", 128000),
+            runtime_min=ASSEMBLY_CONFIG.get("runtime_minutes", 4320)
+        params:
+            output_prefix=ASSEMBLY_PREFIX_PATTERN,
+            assembly_directory=ASSEMBLY_DIRECTORY_PATTERN
+        script:
+            "../scripts/run_hifiasm.py"

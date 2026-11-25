@@ -6,8 +6,11 @@ Generates publication-quality figures for HG002 benchmark results.
 All data is derived from frozen, audited artifacts.
 """
 
-import os
+import argparse
+import json
 from pathlib import Path
+
+from benchmark_qualification import select_cmrg_callers
 
 import pandas as pd
 import matplotlib
@@ -71,6 +74,16 @@ def load_data(filename):
     """Load TSV data file."""
     filepath = DATA_DIR / filename
     return pd.read_csv(filepath, sep='\t')
+
+
+def load_qualified_cmrg_data():
+    """Exclude identity-unresolved results; never rewrite the archival TSV."""
+    callers, _ = select_cmrg_callers(
+        DATA_DIR / 'hg002_cmrg_sv_benchmark.tsv',
+        DATA_DIR / 'cmrg_figure_qualifications.json',
+    )
+    df = load_data('hg002_cmrg_sv_benchmark.tsv')
+    return df[df['caller'].isin(callers)].reset_index(drop=True)
 
 def plot_small_variant_overview():
     """Plot 1: Small-variant performance overview."""
@@ -172,7 +185,7 @@ def plot_stratified_indel():
 
 def plot_cmrg_sv_comparison():
     """Plot 4: CMRG SV caller comparison."""
-    df = load_data('hg002_cmrg_sv_benchmark.tsv')
+    df = load_qualified_cmrg_data()
     
     fig, ax = plt.subplots(figsize=DOUBLE_COLUMN)
     
@@ -190,10 +203,10 @@ def plot_cmrg_sv_comparison():
     
     ax.set_xlabel('SV Caller')
     ax.set_ylabel('Score')
-    ax.set_title('HG002 CMRG GRCh38 SV caller comparison')
+    ax.set_title('HG002 CMRG historical SV estimates', pad=24)
     ax.set_xticks(x)
     ax.set_xticklabels([f"{row['caller']}\n{row['version']}" for _, row in df.iterrows()])
-    ax.legend(ncol=4)
+    ax.legend(ncol=4, loc='lower center', bbox_to_anchor=(0.5, 1.0))
     ax.set_ylim(0.0, 1.05)
     style_axes(ax)
     
@@ -202,7 +215,7 @@ def plot_cmrg_sv_comparison():
 
 def plot_cmrg_sv_breakdown():
     """Plot 5: CMRG SV TP/FP/FN breakdown."""
-    df = load_data('hg002_cmrg_sv_benchmark.tsv')
+    df = load_qualified_cmrg_data()
     
     fig, ax = plt.subplots(figsize=DOUBLE_COLUMN)
     
@@ -215,10 +228,10 @@ def plot_cmrg_sv_breakdown():
     
     ax.set_xlabel('SV Caller')
     ax.set_ylabel('Count')
-    ax.set_title('HG002 CMRG GRCh38 SV caller outcomes')
+    ax.set_title('HG002 CMRG historical SV outcomes', pad=24)
     ax.set_xticks(x)
     ax.set_xticklabels([f"{row['caller']}\n{row['version']}" for _, row in df.iterrows()])
-    ax.legend(ncol=3)
+    ax.legend(ncol=3, loc='lower center', bbox_to_anchor=(0.5, 1.0))
     style_axes(ax)
     
     plt.tight_layout()
@@ -264,6 +277,15 @@ def save_figure(fig, filename):
 
 def main():
     """Generate all benchmark figures."""
+    global OUTPUT_DIR
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output-dir', type=Path, default=OUTPUT_DIR)
+    args = parser.parse_args()
+    OUTPUT_DIR = args.output_dir.resolve()
+    _, qualification = select_cmrg_callers(
+        DATA_DIR / 'hg002_cmrg_sv_benchmark.tsv',
+        DATA_DIR / 'cmrg_figure_qualifications.json',
+    )
     print("Generating HiFiVar benchmark figures...")
     
     # Figure 1
@@ -290,7 +312,17 @@ def main():
     fig = plot_precision_recall()
     save_figure(fig, 'hifivar_benchmark_precision_recall')
     
-    print("All figures generated successfully.")
+    # Revalidate source identity after plotting; no changed input can be frozen.
+    _, final_qualification = select_cmrg_callers(
+        DATA_DIR / 'hg002_cmrg_sv_benchmark.tsv',
+        DATA_DIR / 'cmrg_figure_qualifications.json',
+    )
+    if final_qualification != qualification:
+        raise ValueError('CMRG figure qualification changed during generation')
+    (OUTPUT_DIR / 'figure_qualification.json').write_text(
+        json.dumps(qualification, indent=2) + '\n', encoding='utf-8',
+    )
+    print("All figures generated successfully; qualification manifest retained.")
 
 if __name__ == '__main__':
     main()

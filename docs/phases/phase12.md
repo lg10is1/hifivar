@@ -1,9 +1,16 @@
 # Phase 12 — Cohort / Multi-sample Analysis
 
-**Status: COMPLETE (implementation and Windows mock validation)**
+[中文阶段说明](../zh_CN/phases/phase12.md)
 
-Phase 13 benchmark is **NOT STARTED**. GLnexus and bcftools real-tool execution
-still requires Linux/HPC delta validation.
+**Status: implemented; validation remains route- and candidate-specific.**
+
+This page describes the cohort contracts. Its original implementation checkpoint
+used Windows mocks; later identified Linux cases exercised GLnexus/bcftools,
+sample-order handling and the independent SV/TR summaries. Those cases do not
+certify every later package or a complete multi-sample whole-genome DAG.
+See [current capabilities](../capabilities.md) and [project status](../project_status.md)
+for the current development/release boundary. Benchmarking is documented
+separately in [Phase 13](phase13.md); the old phase checkpoint is not its status.
 
 ## Scope and scientific invariants
 
@@ -81,6 +88,37 @@ state. Source sample/ID/VCF, coordinates, REF/ALT, SVTYPE, callable denominator,
 support count, and `sample_support_fraction` are retained. AC/AN/AF are not
 synthesized. This safely preserves BND, insertion, complex, and native evidence.
 
+### Source-record keys (development policy v2)
+
+`cohort_site_id` identifies one source record, not a cross-sample biological
+locus. A unique legacy `sample:source_variant_id` key remains unchanged. If a
+legacy key occurs more than once, **all** records in that collision group use
+`@hifivar-sv-record-v2:<sample>:<ordinal>`, where ordinal is the 1-based VCF data
+record number within that sample's exact source order; headers, comments and
+blank lines are not records. The reserved `@` prefix cannot be a legal sample
+ID, so generated keys cannot collide with any legacy `sample:ID` key. A disk
+index enforces uniqueness before the two formal tables are published.
+
+TSV columns, record/sample order, GT text and sample states are unchanged.
+`source_variant_id` retains its historical meaning: native VCF ID when present,
+otherwise `CHROM:POS:REF:ALT` as a descriptive fallback. A fallback is not a
+caller-assigned ID or a guaranteed locus identity. Original VCFs are never
+rewritten. Duplicate records and multi-ALT records remain separate source rows
+and intact records respectively, not deduplicated or split alleles.
+
+Track metrics record `site_key_policy`, `disambiguated_record_count`, and
+`site_key_uniqueness_verified`. The policy is
+`legacy_unique_else_reserved_record_ordinal_v2`. Unambiguous historical tables
+remain byte-compatible; only collision-group keys change. An ordinal is stable
+for the exact source file/order, not across sorting or replacement of that file.
+Do not join different samples' keys as though they were clustered SV sites.
+
+SV/TR single-sample source records must contain exactly ten VCF columns, matching
+their one-sample headers. Extra unadvertised sample columns fail validation;
+they are not silently ignored. The SQLite index is task-owned staging: success
+cleans only unchanged owned files, and a failure retains diagnostics without
+publishing a partial table pair. This is not physical two-file atomicity.
+
 ## TR cohort boundary
 
 Callable TR inputs declare the same `catalog_id`. VCFs stream through a temporary
@@ -88,6 +126,23 @@ on-disk SQLite index; equal TRIDs must have identical contig/start/end/motif
 representation. Locus and sample matrices retain genotype text and explicit
 states. Absent loci are `NOT_OBSERVED`; no disease threshold or clinical
 interpretation is inferred.
+
+TR records require exactly one explicit `INFO/TRID` and `INFO/END`. `TRID`
+must be a nonmissing single identifier; an unescaped comma, whitespace, duplicate
+key or flag form is rejected. Percent-encoded identifier text is retained without
+decoding. The native VCF ID column may be `.`. `POS` and `END` must be explicit
+positive ASCII integer coordinates within the signed-64-bit storage range, with
+`END >= POS`. Coordinates keep their native VCF/padding convention; missing or
+malformed END is never replaced with POS or inferred from REF. This does not
+introduce a new STRUC, allele normalization or repeat-genotyping policy.
+
+Duplicate TRIDs within one sample fail. SQLite open, use and standalone close
+failures are typed output-validation errors, allowing Phase 12 to retain other
+successful tracks. A close failure during an existing failure adds diagnostics
+without replacing that failure; process-control exceptions remain interrupts.
+No formal table pair is published after these validation/storage failures.
+Failed staging is preserved for inspection. Native GT text, source VCF/index
+bytes, catalog identity and explicit missing-state semantics remain unchanged.
 
 ## Configuration and workflow
 
@@ -120,9 +175,11 @@ bcftools query -l results/cohort/COHORT/small/COHORT.small.vcf.gz
 
 `GLNEXUS_LINUX_REAL_TOOL_EXECUTION: PASS`
 
-`THREE_SAMPLE_HIFIVAR_DAG_E2E: NOT_PROVEN`; the completed three-sample WGS
-execution used direct external-tool commands, so the remediated packaged DAG
-still requires the documented tiny Linux delta revalidation.
+The historical three-sample full-WGS execution used direct external-tool
+commands. It therefore does not prove end-to-end execution through the packaged
+HiFiVar DAG. Later bounded DAG, regional cohort and installed-table cases retain
+their own source/package identities; they do not turn that historical WGS run
+into a packaged-DAG run or certify every current backend combination.
 
 Set `HIFIVAR_GIT_COMMIT` to the validated checkout SHA before a production
 Snakemake run; the cohort manifest records it explicitly (or `null` when the
@@ -138,7 +195,10 @@ expensive checksum of every large input.
 - Lossless native SV tables and explicit denominators: complete.
 - Catalog-consistent TR locus/sample matrix: complete.
 - Independent optional Snakemake tracks: complete.
-- Windows mock/unit/integration/Snakemake regression: complete.
-- Linux/HPC GLnexus real-tool execution: complete; remediated packaged-DAG tiny
-  delta revalidation remains required.
-- Phase 13: not started.
+- Platform-specific software checks and selected Linux workflow/native cases
+  are recorded against their exact source/package identities. Production
+  Snakemake and bioinformatics execution target Linux/HPC.
+- Linux/HPC GLnexus execution and later scoped cohort cases exist; a successful
+  component or regional case is not all-route whole-genome acceptance.
+- Benchmark development and scientific evaluation are separate from this
+  cohort implementation checklist; see [Phase 13](phase13.md).

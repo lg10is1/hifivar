@@ -1,9 +1,18 @@
 from pathlib import Path
+import struct
+import zlib
 
 from hifivar.command import CommandResult
 from hifivar.igv import IgvWrapper
 from hifivar.phase10 import Phase10Status, run_phase10
 from hifivar.review import read_review_selection
+
+
+def _synthetic_png():
+    def chunk(kind, data):
+        return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data))
+    return (b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',64,64,8,2,0,0,0))+
+            chunk(b'IDAT',zlib.compress((b'\x00'+b'\x88\xaa\xcc'*64)*64))+chunk(b'IEND',b''))
 
 
 class FakeIgvRunner:
@@ -21,7 +30,7 @@ class FakeIgvRunner:
                 snapshot_root = Path(line.split(" ", 1)[1].strip('"'))
                 snapshot_root.mkdir(parents=True, exist_ok=True)
             elif line.startswith("snapshot "):
-                (snapshot_root / line.split(" ", 1)[1]).write_bytes(b"PNG")
+                (snapshot_root / line.split(" ", 1)[1]).write_bytes(_synthetic_png())
         return CommandResult(args, 0, "", "", 0.2, None, True)
 
 

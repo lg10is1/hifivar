@@ -1,15 +1,29 @@
 # HiFiVar release checklist
 
+[简体中文](RELEASE_CHECKLIST.zh-CN.md)
+
 No item in this checklist authorizes an automatic push, tag, PyPI/GitHub
 release, container publication, or version bump. A human release owner must
 approve those actions explicitly.
 
-## 0.1.0rc4 candidate identity
+## 0.1.0rc5 source/package candidate identity
 
 - Canonical version source: `src/hifivar/__init__.py`
-- Expected wheel: `dist/rc4/hifivar-0.1.0rc4-py3-none-any.whl`
-- Expected sdist: `dist/rc4/hifivar-0.1.0rc4.tar.gz`
+- Expected wheel basename: `hifivar-0.1.0rc5-py3-none-any.whl`
+- Expected sdist basename: `hifivar-0.1.0rc5.tar.gz`
+- Build in a distinct dated directory below `dist/rc5/`; never overwrite an
+  earlier candidate while retaining its identity.
+- Preserve all RC1-RC4 tags, releases and artifacts.
+- Do not equate a working-tree source manifest with a release commit.
 - Candidate preparation does not create a commit/tag or publish an artifact.
+- Multiple development builds may share `0.1.0rc5`; record the chosen candidate's
+  dated artifact directory, source manifest and exact wheel/sdist SHA256.
+- Confirm the chosen package contains the documented launcher before advertising
+  `hifivar run`; the initial RC5 security-only build does not contain it.
+- The [15 October payload](docs/rc5_candidate.md#validated-development-payload--已验收开发包)
+  has dedicated Linux/package and bounded launcher acceptance. Its hashes describe
+  that historical payload; later documentation revisions require new measured
+  artifact hashes and matching source manifests.
 
 ## Source and scope
 
@@ -46,6 +60,11 @@ approve those actions explicitly.
 
 ## Artifacts and security
 
+- [ ] Complete the maintainer's credential and secret-management review;
+      environment isolation and file permissions do not invalidate copied keys.
+- [ ] Verify both successful and failing hap.py calls exclude unrelated secrets
+      and protect runinfo; retain sensitive originals outside public artifacts.
+
 - [ ] Inspect wheel and sdist file lists.
 - [ ] Confirm no audit scratch, raw WGS data, BAM/CRAM/FASTQ, SIF, caches or logs
       were included accidentally.
@@ -53,6 +72,9 @@ approve those actions explicitly.
       private host paths and usernames.
 - [ ] Confirm bundle configs/environment summaries are redacted.
 - [ ] Confirm large primary data are pointers unless explicitly approved.
+- [ ] Confirm permission for every human-data label, result, screenshot or
+      manuscript asset proposed for publication; private runtime evidence is not
+      implicitly approved by software-release authorization.
 - [ ] Confirm selected VCF/BCF/TSV artifacts and indexes are complete.
 
 ## Reproducibility and documentation
@@ -62,6 +84,12 @@ approve those actions explicitly.
       commands, environment summary, Git SHA, sample sheet and reference metadata.
 - [ ] Installation, deployment, known limitations and release docs are current.
 - [ ] Benchmark and manual-review statements contain no clinical interpretation.
+- [ ] Deferred human review remains explicitly unreviewed; no screenshot or
+      automated pre-review is counted as a signed manual-validation result.
+- [ ] Historical Sawfish metrics retain their unresolved sample-identity qualifier
+      in text, tables and any derived figure.
+- [ ] Distinguish the regional 17-job multi-track and 13-job read-SV acceptance
+      records from matched-truth accuracy benchmarks and WGS-scale validation.
 
 ## Human-authorized release actions
 

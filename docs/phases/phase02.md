@@ -1,5 +1,7 @@
 # Phase 2: QC and Alignment Foundation
 
+[中文阶段说明](../zh_CN/phases/phase02.md)
+
 **Phase 2 status: COMPLETE**
 
 ## Phase 2.1: QC Framework / Input QC Data Model — COMPLETE

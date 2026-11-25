@@ -1,0 +1,25 @@
+# Development template: no new calling, no automatic retry.
+# Relative data paths resolve against this plan. Replace all study roots.
+# Every selected unit needs four COMPLETE sealed caller receipts.
+schema_version: 1
+study_manifest: manifest.template.yaml
+source_roots:
+  5x-r1:
+    sawfish: results/read_sv_depth_attempt01
+    sniffles2: results/read_sv_depth_attempt01
+    pbsv: results/read_sv_depth_attempt01
+    cutesv: results/read_sv_depth_attempt01
+harmonization:
+  jasmine_executable: jasmine
+  bgzip_executable: bgzip
+  tabix_executable: tabix
+  max_dist: 1000
+  distance_type: linear
+  input_identity_policy:
+    enabled: true
+    policy_id: HIFIVAR_SV_SOURCE_IDENTITY_V1
+    policy_version: 1
+    policy_sha256: 2e054f8778016b7d827c2ae90c97c5d21c46db6387fa0099384964d147ae8658
+    mode: EXPLICIT_COLLISION_AND_MISSING_ID_VIEW
+    timeout_seconds: 300
+support_thresholds: [1, 2, 3, 4]

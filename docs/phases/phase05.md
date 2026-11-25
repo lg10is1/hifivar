@@ -1,5 +1,7 @@
 # Phase 5: TRGT Tandem-Repeat Calling
 
+[中文阶段说明](../zh_CN/phases/phase05.md)
+
 **Phase 5 status: COMPLETE**
 
 ## Phase 5.1: Catalog and artifact boundary — COMPLETE

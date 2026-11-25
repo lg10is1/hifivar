@@ -1,0 +1,15 @@
+{
+  "policy_id": "HIFIVAR_SV_SOURCE_IDENTITY_V1",
+  "policy_version": 1,
+  "mode": "EXPLICIT_COLLISION_AND_MISSING_ID_VIEW",
+  "changed_fields": ["ID"],
+  "record_key": "CALLER_NAMESPACE_SOURCE_SHA256_AND_ONE_BASED_RECORD_ORDINAL",
+  "analysis_namespace": "HFVID1_",
+  "rewrite": "ALL_OCCURRENCES_OF_GLOBALLY_DUPLICATED_IDS_AND_MISSING_DOT_IDS",
+  "mate_parent_ambiguity": "REJECT",
+  "no_record_filtering": true,
+  "preserve_non_ID_fields_order_and_line_endings": true,
+  "canonical_inputs_immutable": true,
+  "support_is_confidence": false,
+  "standalone_view_is_lossless": false
+}

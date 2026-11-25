@@ -203,7 +203,15 @@ class FinalRunReport:
             items=[track for track in self.tracks if track.category==category]
             rows="".join(f"<tr><td>{html.escape(item.name)}</td><td>{html.escape(item.phase)}</td><td class='status {item.status.value.lower()}'>{item.status.value}</td><td>{len(item.samples)}</td><td>{len(item.artifacts)}</td></tr>" for item in items)
             body=f"<table><thead><tr><th>Track</th><th>Phase</th><th>Status</th><th>Samples</th><th>Artifacts</th></tr></thead><tbody>{rows}</tbody></table>" if rows else "<p>NOT_RUN</p>"
-            sections.append(f"<section><h2>{html.escape(title)}</h2>{body}</section>")
+            details = []
+            for item in items:
+                track_warnings = [warning for warning in item.warnings if warning]
+                if not item.message and not track_warnings:
+                    continue
+                message = f"<p>{html.escape(item.message)}</p>" if item.message else ""
+                warnings = "<ul>" + "".join(f"<li>{html.escape(warning)}</li>" for warning in track_warnings) + "</ul>" if track_warnings else ""
+                details.append(f"<div class='track-details'><h3>{html.escape(item.name)}</h3>{message}{warnings}</div>")
+            sections.append(f"<section><h2>{html.escape(title)}</h2>{body}{''.join(details)}</section>")
         warning_items="".join(f"<li>{html.escape(item)}</li>" for item in self.warnings) or "<li>None recorded.</li>"
         return "<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>HiFiVar report</title><style>body{font-family:system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;color:#17202a}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccd1d1;padding:.45rem;text-align:left}.status{font-weight:700}.complete{color:#18743b}.partial,.not_run{color:#936600}.failed{color:#b42318}.disabled{color:#667085}.notice{padding:1rem;background:#f2f4f7;border-left:4px solid #667085}</style></head><body>" + f"<h1>HiFiVar run report: {html.escape(self.run_id)}</h1><p><strong>Status:</strong> {self.status.value}<br><strong>Version:</strong> {html.escape(self.project_version)}<br><strong>Git SHA:</strong> {html.escape(self.git_sha or 'NOT_RECORDED')}<br><strong>Created:</strong> {html.escape(self.created_at)}</p><p class='notice'>Research use only. No clinical interpretation is performed.</p><h2>Summary</h2><p>Samples: {len(self.samples)}; enabled phases: {html.escape(', '.join(self.enabled_phases) or 'none')}.</p>" + "".join(sections) + f"<section><h2>Warnings and limitations</h2><ul>{warning_items}</ul></section></body></html>"
 

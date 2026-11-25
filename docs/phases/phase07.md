@@ -1,5 +1,7 @@
 # Phase 7  hifiasm single-sample haplotype assembly
 
+[中文阶段说明](../zh_CN/phases/phase07.md)
+
 ## Status
 
 **COMPLETE**

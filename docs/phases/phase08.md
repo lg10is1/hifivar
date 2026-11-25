@@ -1,5 +1,7 @@
 # Phase 8  Assembly-based structural-variant calling
 
+[中文阶段说明](../zh_CN/phases/phase08.md)
+
 **Phase 8 status: COMPLETE**
 
 ## 8.18.3 Contract and PAV boundary
@@ -45,10 +47,9 @@ immutable provenance. Unknown SVTYPE, missing/scalar-invalid SVLEN, missing PAV
 source version, or a non-2.4.6 PAV release fails explicitly. This is not an ad
 hoc HiFiVar scientific threshold; it is the PAV 2.4.6 VARTYPE implementation.
 
-The SV-only adapter delta passed Linux real-data validation against the
-SCZ_BC2003 PAV 2.4.6 mixed root VCF: 29,962 eligible records were selected with
-zero missing, extra, short-indel, SNV, or source-field differences. The derived
-artifact is authorized as the sixth Phase 9 Jasmine source.
+The derived SV-only artifact is the supported PAV input to Phase 9 Jasmine;
+the native mixed VCF is not. Adapter validation checks selection membership
+and preservation of source fields separately from biological accuracy.
 
 - PAV implementation: PASS
 - PAV mock verification: PASS
@@ -138,3 +139,16 @@ separate tool-contract concern.
 
 Jasmine, Truvari harmonization, SURVIVOR, truth/confidence labeling, benchmark,
 annotation, IGV/manual review, and Phase 10 are absent.
+
+## Development extension: explicit existing assemblies
+
+The current development launcher can alternatively select
+`assembly_sv.input_manifest` with `assembly.enabled: false`. See the
+[English/Chinese ready-assembly instructions](../ready_assemblies.md).
+This path freezes user-declared roles and complete FASTA hashes, writes an
+attempt-bound validation-only input record, and registers PAV/SVIM-asm without
+registering hifiasm. It does not reclassify reused inputs as a new assembly.
+Only new native assembly-SV commands can seal new caller receipts. The report
+shows input reuse separately and leaves assembly disabled. Downstream consumer
+configuration does not reactivate the ready producer. Historical releases and
+earlier development artifacts do not gain this extension retrospectively.

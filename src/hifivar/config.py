@@ -10,7 +10,8 @@ from pathlib import Path
 
 import yaml
 
-from hifivar.exceptions import ConfigurationError
+from hifivar.calling_region import parse_calling_region
+from hifivar.exceptions import ConfigurationError, InputValidationError
 from hifivar.logging_utils import get_logger, parse_log_level
 
 
@@ -25,9 +26,13 @@ _ALLOWED_SCHEMA = {
     "runtime": frozenset({"threads", "tmpdir"}),
     "paths": frozenset({"workdir", "outdir"}),
     "logging": frozenset({"level", "file"}),
-    "workflow": frozenset({"preset"}),
+    "workflow": frozenset({"preset", "memory_mb", "samtools_executable", "downstream_source_plan"}),
     "alignment": frozenset(
         {
+            "enabled",
+            "pbmm2_executable",
+            "minimap2_executable",
+            "pbmm2_sort_threads",
             "tool",
             "output_format",
             "threads",
@@ -46,6 +51,7 @@ _ALLOWED_SCHEMA = {
             "execution_mode",
             "deepvariant_executable",
             "deepvariant_image",
+            "region",
             "model_type",
             "threads",
             "max_concurrent_samples",
@@ -66,10 +72,11 @@ _ALLOWED_SCHEMA = {
             "harmonization",
         }
     ),
-    "assembly_sv": frozenset({"enabled", "overwrite", "pav", "svim_asm"}),
+    "assembly_sv": frozenset({"enabled", "overwrite", "input_manifest", "pav", "svim_asm"}),
     "assembly": frozenset(
         {
             "enabled",
+            "sample_sheet",
             "backend",
             "executable",
             "threads",
@@ -84,6 +91,9 @@ _ALLOWED_SCHEMA = {
             "backend",
             "executable",
             "tabix_executable",
+            "sv_caller",
+            "include_tr",
+            "global_realignment",
             "threads",
             "memory_mb",
             "runtime_minutes",
@@ -110,6 +120,7 @@ _ALLOWED_SCHEMA = {
         {
             "enabled",
             "selection_file",
+            "source_plan",
             "igv_executable",
             "flank_bp",
             "threads",
@@ -140,7 +151,7 @@ _ALLOWED_SCHEMA = {
         }
     ),
     "benchmark": frozenset(
-        {"enabled", "benchmark_id", "sample_id", "overwrite", "small_variants", "sv", "assembly_sv", "tr"}
+        {"enabled", "benchmark_id", "sample_id", "overwrite", "source_plan", "small_variants", "sv", "assembly_sv", "tr"}
     ),
     "low_depth": frozenset(
         {
@@ -181,12 +192,14 @@ _REQUIRED_FIELDS = {
 _PATH_FIELDS = (
     ("reference", "fasta"),
     ("samples", "sheet"),
+    ("assembly", "sample_sheet"),
     ("runtime", "tmpdir"),
     ("paths", "workdir"),
     ("paths", "outdir"),
     ("logging", "file"),
     ("tr", "catalog"),
     ("review", "selection_file"),
+    ("review", "source_plan"),
     ("annotation", "input_manifest"),
     ("annotation", "annovar_database_root"),
     ("annotation", "vep_cache_directory"),
@@ -234,7 +247,8 @@ _SV_CALLER_KEYS = {
         {
             "enabled", "backend", "jasmine_executable", "truvari_executable",
             "bgzip_executable", "tabix_executable", "threads", "memory_mb",
-            "runtime_minutes", "max_dist", "distance_type", "overwrite", "input_vcfs",
+            "runtime_minutes", "max_dist", "distance_type", "overwrite", "input_vcfs", "bnd_representation", "input_identity",
+            "minimum_caller_support",
         }
     ),
 }
@@ -433,6 +447,15 @@ def validate_config(
             _validate_optional_path(logging_config["file"], "logging.file")
 
     workflow = _optional_section(config, "workflow")
+    if workflow is not None:
+        if "downstream_source_plan" in workflow:
+            _validate_optional_path(workflow["downstream_source_plan"], "workflow.downstream_source_plan")
+        if "memory_mb" in workflow:
+            _validate_positive_integer(workflow["memory_mb"], "workflow.memory_mb")
+        if "samtools_executable" in workflow:
+            value = workflow["samtools_executable"]
+            if not isinstance(value, str) or not value.strip():
+                raise ConfigurationError("workflow.samtools_executable must be non-empty text.")
     if workflow is not None and "preset" in workflow:
         preset = workflow["preset"]
         if not isinstance(preset, str) or preset not in _WORKFLOW_PRESETS:
@@ -443,6 +466,13 @@ def validate_config(
 
     alignment = _optional_section(config, "alignment")
     if alignment is not None:
+        if "enabled" in alignment and not isinstance(alignment["enabled"], bool):
+            raise ConfigurationError("alignment.enabled must be a boolean.")
+        for key in ("pbmm2_executable", "minimap2_executable"):
+            if key in alignment and (not isinstance(alignment[key], str) or not alignment[key].strip()):
+                raise ConfigurationError(f"alignment.{key} must be a non-empty string.")
+        if "pbmm2_sort_threads" in alignment:
+            _validate_positive_integer(alignment["pbmm2_sort_threads"], "alignment.pbmm2_sort_threads")
         if "tool" in alignment:
             _validate_choice(
                 alignment["tool"],
@@ -490,6 +520,14 @@ def validate_config(
 
     small = _optional_section(config, "small")
     if small is not None:
+        try:
+            parse_calling_region(small.get("region"))
+        except InputValidationError as error:
+            raise ConfigurationError(str(error)) from error
+        if small.get("region") is not None:
+            low_depth_scope = _optional_section(config, "low_depth")
+            if low_depth_scope and low_depth_scope.get("enabled"):
+                raise ConfigurationError("small.region is not supported by the Phase 15 low_depth workflow.")
         if "enabled" in small and not isinstance(small["enabled"], bool):
             raise ConfigurationError("small.enabled must be a boolean.")
         if "execution_mode" in small:
@@ -560,6 +598,18 @@ def validate_config(
                 if not isinstance(key, str) or key not in allowed_keys:
                     raise ConfigurationError(f"Unknown configuration key: sv.{section_name}.{key}.")
             if section_name == "harmonization":
+                if "input_identity" in subsection:
+                    from hifivar.sv_input_identity import SourceIdentityPolicy
+
+                    identity_policy = SourceIdentityPolicy.from_config(subsection["input_identity"])
+                    if identity_policy is not None and subsection.get("enabled") is not True:
+                        raise ConfigurationError("SV source identity requires sv.harmonization.enabled: true.")
+                if "bnd_representation" in subsection:
+                    from hifivar.breakends import BndPolicy
+
+                    policy = BndPolicy.from_config(subsection["bnd_representation"])
+                    if policy is not None and subsection.get("enabled") is not True:
+                        raise ConfigurationError("BND representation requires sv.harmonization.enabled: true.")
                 for key in ("enabled", "overwrite"):
                     if key in subsection and not isinstance(subsection[key], bool):
                         raise ConfigurationError(f"sv.harmonization.{key} must be a boolean.")
@@ -571,6 +621,12 @@ def validate_config(
                 for key in ("threads", "memory_mb", "runtime_minutes", "max_dist"):
                     if key in subsection:
                         _validate_positive_integer(subsection[key], f"sv.harmonization.{key}")
+                minimum = subsection.get("minimum_caller_support", 1)
+                _validate_positive_integer(minimum, "sv.harmonization.minimum_caller_support")
+                if minimum > 6:
+                    raise ConfigurationError("sv.harmonization.minimum_caller_support must be between 1 and 6.")
+                if minimum > 1 and subsection.get("enabled") is False:
+                    raise ConfigurationError("Caller-support selection requires sv.harmonization.enabled: true.")
                 if "input_vcfs" in subsection:
                     inputs = subsection["input_vcfs"]
                     if not isinstance(inputs, Mapping):
@@ -609,6 +665,14 @@ def validate_config(
 
     assembly_sv = _optional_section(config, "assembly_sv")
     if assembly_sv is not None:
+        if "input_manifest" in assembly_sv:
+            _validate_optional_path(assembly_sv["input_manifest"], "assembly_sv.input_manifest")
+            value = assembly_sv["input_manifest"]
+            if value is not None:
+                if not isinstance(value, str) or not value.strip():
+                    raise ConfigurationError("assembly_sv.input_manifest must be a nonempty path or null.")
+                if not assembly_sv.get("enabled") or config.get("assembly", {}).get("enabled"):
+                    raise ConfigurationError("Ready assembly input_manifest requires assembly_sv.enabled=true and assembly.enabled=false.")
         for key in ("enabled", "overwrite"):
             if key in assembly_sv and not isinstance(assembly_sv[key], bool):
                 raise ConfigurationError(f"assembly_sv.{key} must be a boolean.")
@@ -655,6 +719,8 @@ def validate_config(
 
     phasing = _optional_section(config, "phasing")
     if phasing is not None:
+        from hifivar.joint_phasing import phasing_options
+        phasing_options(phasing)
         for key in ("enabled", "overwrite"):
             if key in phasing and not isinstance(phasing[key], bool):
                 raise ConfigurationError(f"phasing.{key} must be a boolean.")
@@ -675,8 +741,12 @@ def validate_config(
                 raise ConfigurationError(f"review.{key} must be a boolean.")
         if "selection_file" in review:
             _validate_optional_path(review["selection_file"], "review.selection_file")
-        if review.get("enabled") and not review.get("selection_file"):
-            raise ConfigurationError("review.enabled requires review.selection_file.")
+        if "source_plan" in review:
+            _validate_optional_path(review["source_plan"], "review.source_plan")
+        if review.get("selection_file") and review.get("source_plan"):
+            raise ConfigurationError("review.selection_file and review.source_plan are mutually exclusive.")
+        if review.get("enabled") and not (review.get("selection_file") or review.get("source_plan")):
+            raise ConfigurationError("review.enabled requires review.selection_file or review.source_plan.")
         if "igv_executable" in review and (
             not isinstance(review["igv_executable"], str)
             or not review["igv_executable"].strip()
@@ -731,8 +801,8 @@ def validate_config(
         ):
             raise ConfigurationError("ANNOVAR protocol/operation lists must have equal length.")
         if annotation.get("enabled"):
-            if not annotation.get("input_manifest"):
-                raise ConfigurationError("annotation.enabled requires annotation.input_manifest.")
+            if not annotation.get("input_manifest") and not (workflow or {}).get("downstream_source_plan"):
+                raise ConfigurationError("annotation.enabled requires annotation.input_manifest or workflow.downstream_source_plan.")
             if not any(annotation.get(key) is True for key in ("annovar_enabled", "vep_enabled", "overlap_enabled")):
                 raise ConfigurationError("annotation.enabled requires at least one annotation backend.")
         if annotation.get("annovar_enabled") and require_complete:
@@ -780,8 +850,8 @@ def validate_config(
                 raise ConfigurationError("cohort.cohort_id must be a non-empty string or null.")
         if "input_manifest" in cohort:
             _validate_optional_path(cohort["input_manifest"], "cohort.input_manifest")
-        if cohort.get("enabled") and (not cohort.get("cohort_id") or not cohort.get("input_manifest")):
-            raise ConfigurationError("cohort.enabled requires cohort.cohort_id and cohort.input_manifest.")
+        if cohort.get("enabled") and (not cohort.get("cohort_id") or (not cohort.get("input_manifest") and not (workflow or {}).get("downstream_source_plan"))):
+            raise ConfigurationError("cohort.enabled requires cohort.cohort_id and input_manifest or workflow.downstream_source_plan.")
         track_keys = {
             "small_variants": frozenset({"enabled", "glnexus_executable", "bcftools_executable", "preset", "threads", "memory_gb", "runtime_minutes"}),
             "sv": frozenset({"enabled", "threads", "memory_mb", "runtime_minutes"}),
@@ -815,6 +885,8 @@ def validate_config(
                     raise ConfigurationError(f"cohort.{track_name}.{key} must be a non-empty string.")
     benchmark = _optional_section(config, "benchmark")
     if benchmark is not None:
+        _validate_optional_path(benchmark.get("source_plan"), "benchmark.source_plan")
+        source_plan = benchmark.get("source_plan")
         for key in ("enabled", "overwrite"):
             if key in benchmark and not isinstance(benchmark[key], bool):
                 raise ConfigurationError(f"benchmark.{key} must be a boolean.")
@@ -876,7 +948,12 @@ def validate_config(
                     if not isinstance(region, Mapping) or set(region) != {"name", "path", "version", "region_class"} or any(not isinstance(region[key], str) or not region[key].strip() for key in region):
                         raise ConfigurationError("Each benchmark stratification requires non-empty name/path/version/region_class strings.")
             if track.get("enabled"):
-                required = {"query_vcf", "truth_vcf", "truth_version", "truth_source"}
+                required = {"truth_vcf", "truth_version", "truth_source"}
+                if source_plan:
+                    if track.get("query_vcf") is not None:
+                        raise ConfigurationError("benchmark.source_plan and legacy query_vcf are mutually exclusive.")
+                else:
+                    required.add("query_vcf")
                 if track_name == "small_variants": required |= {"confident_bed", "confident_bed_version"}
                 if track_name == "tr": required |= {"catalog_id"}
                 missing = sorted(key for key in required if not track.get(key))
@@ -1087,6 +1164,10 @@ def validate_config(
                     )
     assembly = _optional_section(config, "assembly")
     if assembly is not None:
+        if "sample_sheet" in assembly:
+            _validate_optional_path(assembly["sample_sheet"], "assembly.sample_sheet")
+            if isinstance(assembly["sample_sheet"], str) and not assembly["sample_sheet"].strip():
+                raise ConfigurationError("assembly.sample_sheet must be a non-empty string path or null.")
         for key in ("enabled", "overwrite"):
             if key in assembly and not isinstance(assembly[key], bool):
                 raise ConfigurationError(f"assembly.{key} must be a boolean.")

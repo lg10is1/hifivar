@@ -1,5 +1,7 @@
 # Phase 4: Read-based Structural Variant Calling
 
+[中文阶段说明](../zh_CN/phases/phase04.md)
+
 **Phase 4 status: COMPLETE**
 
 ## Phase 4.1: Sawfish Wrapper — COMPLETE

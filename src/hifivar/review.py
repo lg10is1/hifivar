@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import os
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
 from typing import Mapping, Sequence
 
 from hifivar.exceptions import InputValidationError, OutputValidationError
+from hifivar.junction_consumers import SelectedJunctionRecord, read_selected_junction_records
+from hifivar.reference import ReferenceGenome
 from hifivar.serialization import (
     utc_now_iso8601,
     write_json_atomic,
@@ -44,6 +47,7 @@ _SELECTION_OPTIONAL = (
     "mate_position",
     "flank_bp",
     "trgt_visualization",
+    "bnd_bundle_manifest",
 )
 
 
@@ -141,8 +145,21 @@ class ReviewTarget:
     mate_contig: str | None = None
     mate_position: int | None = None
     trgt_visualization_path: Path | None = None
+    bnd_bundle_manifest: Path | None = None
+    reference_build: str | None = None
+    view_mode: str = "legacy"
+    small_flank_bp: int = 40
+    breakpoint_flank_bp: int = 250
+    long_variant_bp: int = 1000
+    _junction_record: SelectedJunctionRecord | None = field(default=None, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.view_mode, str) or self.view_mode not in {"legacy", "scientific"}:
+            raise InputValidationError("Review view_mode must be legacy or scientific.")
+        for name in ("small_flank_bp", "breakpoint_flank_bp", "long_variant_bp"):
+            value = getattr(self, name)
+            if type(value) is not int or not 1 <= value <= 100000:
+                raise InputValidationError(f"Review {name} must be an integer in 1..100000.")
         for name in ("review_id", "sample_id"):
             value = getattr(self, name)
             if not isinstance(value, str) or _SAFE_ID.fullmatch(value) is None:
@@ -159,15 +176,17 @@ class ReviewTarget:
             raise InputValidationError("Review evidence_class must be EvidenceClass.")
         for name in ("start", "end"):
             value = getattr(self, name)
-            if not isinstance(value, int) or isinstance(value, bool) or value < 1:
-                raise InputValidationError(f"Review {name} must be a positive integer.")
+            if not isinstance(value, int) or isinstance(value, bool) or value < (0 if self.variant_class is VariantClass.BND else 1):
+                raise InputValidationError(f"Review {name} must be a positive integer or explicit virtual BND anchor.")
         if self.end < self.start:
             raise InputValidationError("Review end must not precede start.")
         if not isinstance(self.flank_bp, int) or isinstance(self.flank_bp, bool) or self.flank_bp < 0:
             raise InputValidationError("Review flank_bp must be a non-negative integer.")
         if self.variant_class is VariantClass.BND:
-            if not self.mate_contig or not isinstance(self.mate_position, int) or self.mate_position < 1:
-                raise InputValidationError("BND review requires mate_contig and positive mate_position.")
+            if (self.mate_contig is None) != (self.mate_position is None):
+                raise InputValidationError('BND mate declarations must supply both fields or neither.')
+            if self.mate_position is not None and (type(self.mate_position) is not int or self.mate_position < 0):
+                raise InputValidationError('BND mate position must be an explicit nonnegative integer.')
         elif self.mate_contig is not None or self.mate_position is not None:
             raise InputValidationError("Breakend mate coordinates are valid only for BND review.")
         if self.variant_class is not VariantClass.TR and self.trgt_visualization_path is not None:
@@ -186,6 +205,20 @@ class ReviewTarget:
             raise InputValidationError(
                 f"REFERENCE_CONTIG_MISMATCH for review '{self.review_id}': {missing!r}."
             )
+        if self.variant_class is VariantClass.BND:
+            genome = ReferenceGenome.from_fasta(reference, build=self.reference_build or 'UNVERIFIED_REVIEW_BUILD')
+            record = read_selected_junction_records(source, (self.variant_id,), reference=genome,
+                sample_id=self.sample_id, bundle_manifest=self.bnd_bundle_manifest)[0]
+            junction = record.junction
+            if junction is None or (self.contig, self.start, self.end) != (record.contig, record.position, record.position):
+                raise InputValidationError('BND review coordinates must match the exact selected VCF anchor, not END.')
+            if self.mate_contig is not None and (self.mate_contig, self.mate_position) != (junction.mate_contig, junction.mate_position):
+                raise InputValidationError('Declared BND mate differs from the exact selected ALT.')
+            object.__setattr__(self, 'mate_contig', junction.mate_contig)
+            object.__setattr__(self, 'mate_position', junction.mate_position)
+            object.__setattr__(self, '_junction_record', record)
+        elif self.bnd_bundle_manifest is not None:
+            raise InputValidationError('Explicit BND bundle review requires a BND target.')
         object.__setattr__(self, "source_vcf", source)
         object.__setattr__(self, "alignment_path", alignment)
         object.__setattr__(self, "reference_fasta", reference)
@@ -195,16 +228,50 @@ class ReviewTarget:
     @property
     def loci(self) -> tuple[ReviewLocus, ...]:
         """Generate transparent windows; INS uses its anchor, BND uses two loci."""
-        if self.variant_class in {VariantClass.SNV, VariantClass.INS, VariantClass.BND}:
-            primary_end = self.start
-        else:
-            primary_end = self.end
-        primary = _make_locus("primary", self.contig, self.start, primary_end, self.flank_bp)
-        if self.variant_class is not VariantClass.BND:
-            return (primary,)
-        assert self.mate_contig is not None and self.mate_position is not None
-        mate = _make_locus("mate", self.mate_contig, self.mate_position, self.mate_position, self.flank_bp)
-        return (primary, mate)
+        if self.variant_class is VariantClass.BND:
+            record = self._junction_record
+            assert record is not None and record.junction is not None
+            junction = record.junction
+            lengths = read_fai_contigs(Path(str(self.reference_fasta) + '.fai'))
+            result = []
+            for label, contig, position, virtual in (
+                ('primary', junction.contig, junction.position, junction.local_virtual),
+                ('mate', junction.mate_contig, junction.mate_position, junction.mate_virtual)):
+                if contig is None or virtual:
+                    continue
+                flank = self.breakpoint_flank_bp if self.view_mode == 'scientific' else self.flank_bp
+                result.append(ReviewLocus(label, contig, position, position,
+                    max(1, position - flank), min(lengths[contig], position + flank)))
+            return tuple(result)
+        primary_end = self.start if self.variant_class in {VariantClass.SNV, VariantClass.INS} else self.end
+        if self.view_mode == "scientific":
+            length = read_fai_contigs(Path(str(self.reference_fasta) + '.fai'))[self.contig]
+            if self.end > length:
+                raise InputValidationError('Review target extends beyond its reference contig.')
+            def window(label, start, end, flank):
+                return ReviewLocus(label, self.contig, start, end,
+                    max(1, start-flank), min(length, end+flank))
+            if self.variant_class in {VariantClass.SNV, VariantClass.INDEL, VariantClass.INS}:
+                return (window('primary', self.start, primary_end, self.small_flank_bp),)
+            overview = window('overview', self.start, primary_end, self.flank_bp)
+            if primary_end-self.start+1 >= self.long_variant_bp:
+                return (overview,
+                        window('left_breakpoint', self.start, self.start, self.breakpoint_flank_bp),
+                        window('right_breakpoint', primary_end, primary_end, self.breakpoint_flank_bp))
+            return (overview,)
+        return (_make_locus('primary', self.contig, self.start, primary_end, self.flank_bp),)
+
+    @property
+    def unrendered_bnd_endpoints(self) -> tuple[dict, ...]:
+        if self._junction_record is None:
+            return ()
+        junction = self._junction_record.junction
+        return tuple({'endpoint': label, 'contig': contig, 'position': position,
+            'status': 'UNKNOWN_SINGLE_BREAKEND' if contig is None else 'NO_REFERENCE_BASE_VIRTUAL_ANCHOR'}
+            for label, contig, position, virtual in (
+                ('LOCAL', junction.contig, junction.position, junction.local_virtual),
+                ('ALT_MATE', junction.mate_contig, junction.mate_position, junction.mate_virtual))
+            if contig is None or virtual)
 
     @property
     def screenshot_paths(self) -> tuple[Path, ...]:
@@ -223,6 +290,9 @@ class ReviewTarget:
             "flank_bp": self.flank_bp,
             "mate_contig": self.mate_contig,
             "mate_position": self.mate_position,
+            "junction_record": self._junction_record.to_dict() if self._junction_record else None,
+            "unrendered_bnd_endpoints": list(self.unrendered_bnd_endpoints),
+            "view_mode": self.view_mode,
             "loci": [locus.to_dict() for locus in self.loci],
             "source_vcf": str(self.source_vcf),
             "source_caller": self.source_caller,
@@ -295,6 +365,8 @@ class ReviewResult:
             "status": self.status.value,
             "notes": self.notes,
             "status_is_truth": False,
+            "junction_record": self.target._junction_record.to_dict() if self.target._junction_record else None,
+            "unrendered_bnd_endpoints": list(self.target.unrendered_bnd_endpoints),
         }
 
 
@@ -336,6 +408,7 @@ class ReviewManifest:
             "review_id", "sample", "variant_id", "variant_type", "locus",
             "evidence_class", "source_caller", "source_vcf", "source_bam",
             "source_reference", "screenshot", "trgt_visualization", "status", "notes",
+            "junction_json", "unrendered_bnd_endpoints_json",
         )
         stream = io.StringIO(newline="")
         writer = csv.DictWriter(stream, fieldnames=fields, delimiter="\t", lineterminator="\n")
@@ -351,6 +424,8 @@ class ReviewManifest:
                 "screenshot": ";".join(row["screenshots"]),
                 "trgt_visualization": row["trgt_visualization"] or "",
                 "status": row["status"], "notes": row["notes"],
+                "junction_json": json.dumps(row["junction_record"], sort_keys=True),
+                "unrendered_bnd_endpoints_json": json.dumps(row["unrendered_bnd_endpoints"], sort_keys=True),
             })
         return _write_text_atomic(Path(path), stream.getvalue(), overwrite=overwrite, label="Review TSV manifest")
 
@@ -362,6 +437,7 @@ def read_review_selection(
     reference_fasta: Path,
     output_directory: Path,
     default_flank_bp: int = 500,
+    reference_build: str | None = None,
 ) -> tuple[ReviewTarget, ...]:
     """Read an explicit TSV selection without inferring confidence or truth."""
     selection = Path(path).expanduser()
@@ -398,6 +474,8 @@ def read_review_selection(
             mate_contig=(row.get("mate_contig") or "").strip() or None,
             mate_position=mate_position,
             trgt_visualization_path=_optional_relative_path(row.get("trgt_visualization"), base),
+            bnd_bundle_manifest=_optional_relative_path(row.get("bnd_bundle_manifest"), base),
+            reference_build=reference_build,
         )
         targets.append(target)
     ids = [target.review_id for target in targets]

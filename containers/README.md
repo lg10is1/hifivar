@@ -1,5 +1,7 @@
 # Core container definitions
 
+[简体中文](README.zh-CN.md)
+
 `hifivar.def` builds the HiFiVar core from `python:3.12-slim-bookworm` and the
 current source tree. Build it from the repository root:
 

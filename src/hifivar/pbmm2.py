@@ -45,6 +45,7 @@ class Pbmm2Options:
 
     preset: str = "CCS"
     log_level: str = "INFO"
+    sort_threads: int | None = None
 
     def __post_init__(self) -> None:
         """Restrict the wrapper to explicit HiFi presets and log levels."""
@@ -66,6 +67,8 @@ class Pbmm2Options:
             )
         object.__setattr__(self, "preset", preset)
         object.__setattr__(self, "log_level", log_level)
+        if self.sort_threads is not None and (type(self.sort_threads) is not int or self.sort_threads <= 0):
+            raise ConfigurationError("pbmm2 sort_threads must be a positive integer or None.")
 
     @classmethod
     def from_config(cls, config: Mapping[str, object]) -> Pbmm2Options:
@@ -134,7 +137,7 @@ class Pbmm2Wrapper:
         )
         if request.resources is None:  # pragma: no cover - model invariant
             raise InputValidationError("pbmm2 request resources are missing.")
-        return [
+        command = [
             self.executable,
             "align",
             str(request.reference.fasta),
@@ -152,6 +155,9 @@ class Pbmm2Wrapper:
             "--log-level",
             self.options.log_level,
         ]
+        if self.options.sort_threads is not None:
+            command.extend(["-J", str(self.options.sort_threads)])
+        return command
 
     def plan_command(self, request: AlignmentRequest) -> AlignmentCommandPlan:
         """Return a reproducible dry-run command plan."""

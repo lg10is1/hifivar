@@ -9,6 +9,7 @@ from pathlib import Path
 from hifivar.assembly import AssemblyRole, HaplotypeAssemblyArtifact
 from hifivar.exceptions import InputValidationError, OutputValidationError
 from hifivar.reference import ReferenceGenome
+from hifivar.ready_assemblies import ReadyAssemblyArtifact, protect_ready_assembly_inputs
 from hifivar.sv import validate_sv_vcf
 from hifivar.validation import validate_output_file
 
@@ -46,7 +47,7 @@ class AssemblySvRequest:
     sample_id: str
     caller: AssemblySvCaller
     reference: ReferenceGenome
-    assemblies: tuple[HaplotypeAssemblyArtifact, ...]
+    assemblies: tuple[HaplotypeAssemblyArtifact | ReadyAssemblyArtifact, ...]
     work_directory: Path
     output_vcf: Path
     resources: AssemblySvResources = AssemblySvResources()
@@ -61,6 +62,10 @@ class AssemblySvRequest:
             raise InputValidationError("Assembly-SV request requires ReferenceGenome.")
         if not self.assemblies or len(self.assemblies) > 2:
             raise InputValidationError("Assembly-SV requires one or two haplotype assemblies.")
+        if any(not isinstance(item, (HaplotypeAssemblyArtifact, ReadyAssemblyArtifact)) for item in self.assemblies):
+            raise InputValidationError("Assembly-SV requires explicit generated or ready assembly artifacts.")
+        if len({isinstance(item, ReadyAssemblyArtifact) for item in self.assemblies}) != 1:
+            raise InputValidationError("Generated and externally ready assemblies cannot be mixed in one request.")
         roles = tuple(item.role for item in self.assemblies)
         if len(set(roles)) != len(roles):
             raise InputValidationError("Assembly-SV haplotype roles must be unique.")
@@ -81,6 +86,7 @@ class AssemblySvRequest:
             raise InputValidationError("Assembly-SV overwrite must be boolean.")
         object.__setattr__(self, "work_directory", Path(self.work_directory))
         object.__setattr__(self, "output_vcf", output)
+        self.validate_reused_inputs(verify=False)
         for path in (output, Path(f"{output}.tbi")):
             if path.exists() and not self.overwrite:
                 raise OutputValidationError(f"Assembly-SV output already exists: '{path}'.")
@@ -88,6 +94,15 @@ class AssemblySvRequest:
     @property
     def output_index(self) -> Path:
         return Path(f"{self.output_vcf}.tbi")
+
+    def validate_reused_inputs(self, *, extra_outputs: tuple[Path, ...] = (), verify: bool = True,
+                               require_fresh_work_directory: bool = False) -> None:
+        """Protect ready FASTAs/manifests; generated assembly behavior is unchanged."""
+        protect_ready_assembly_inputs(
+            self.assemblies, outputs=(self.output_vcf, self.output_index, *extra_outputs),
+            work_directory=self.work_directory, verify=verify,
+            require_fresh_work_directory=require_fresh_work_directory,
+        )
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -109,7 +124,7 @@ class AssemblySvArtifact:
     sample_id: str
     reference_fasta: Path
     reference_build: str | None
-    assemblies: tuple[HaplotypeAssemblyArtifact, ...]
+    assemblies: tuple[HaplotypeAssemblyArtifact | ReadyAssemblyArtifact, ...]
     raw_vcf: Path
     vcf_path: Path
     index_path: Path
@@ -171,6 +186,7 @@ def create_assembly_sv_artifact(
     commands: tuple[tuple[str, ...], ...],
 ) -> AssemblySvArtifact:
     """Validate and retain one caller's raw and finalized evidence."""
+    request.validate_reused_inputs()
     validate_output_file(raw_vcf)
     validate_sv_vcf(
         request.output_vcf,

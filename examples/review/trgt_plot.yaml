@@ -1,0 +1,41 @@
+# TEMPLATE ONLY. Replace every placeholder path and all seven SHA256 values
+# using your own existing TRGT artifacts. This does not install or run calling.
+# All relative paths are resolved beside THIS YAML, not the shell directory.
+# Create the parent directory "results" yourself; the leaf must not exist.
+# File hashes prove selected bytes, not a native producer receipt or accuracy.
+schema_version: 1
+sample_id: SAMPLE01
+selector: TRID:YOUR_CATALOG_REPEAT_ID
+reference:
+  fasta: resources/reference.fasta
+  fai: resources/reference.fasta.fai
+  build: GRCh38
+catalog:
+  path: resources/repeats.bed
+  build: GRCh38
+source:
+  mode: EXTERNAL_FILES
+  vcf: inputs/SAMPLE01.tr.vcf.gz
+  tbi: inputs/SAMPLE01.tr.vcf.gz.tbi
+  spanning_bam: inputs/SAMPLE01.tr.spanning.bam
+  bai: inputs/SAMPLE01.tr.spanning.bam.bai
+expected_sha256:
+  fasta: REPLACE_WITH_LOWERCASE_SHA256
+  fai: REPLACE_WITH_LOWERCASE_SHA256
+  catalog: REPLACE_WITH_LOWERCASE_SHA256
+  vcf: REPLACE_WITH_LOWERCASE_SHA256
+  tbi: REPLACE_WITH_LOWERCASE_SHA256
+  spanning_bam: REPLACE_WITH_LOWERCASE_SHA256
+  bai: REPLACE_WITH_LOWERCASE_SHA256
+runtime:
+  executable: trgt
+  supported_version: '5.1.0'
+plot:
+  type: allele
+  show: motifs
+  format: svg
+  max_allele_reads: 20
+execution:
+  timeout_seconds: 120
+output:
+  directory: results/SAMPLE01_TRGT_native_plot

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Final
 
 from hifivar import __version__
+from hifivar.calling_region import parse_calling_region
 from hifivar.alignment import AlignmentOutputFormat
 from hifivar.alignment_postprocess import (
     AlignmentArtifact,
@@ -56,6 +57,7 @@ class Phase3Settings:
     resources: SmallVariantResources
     model_type: SmallVariantModelType = SmallVariantModelType.PACBIO
     overwrite: bool = False
+    region: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.runtime, DeepVariantRuntime):
@@ -68,6 +70,10 @@ class Phase3Settings:
             raise ConfigurationError("Phase 3 model_type must be PACBIO.")
         if not isinstance(self.overwrite, bool):
             raise ConfigurationError("Phase 3 overwrite must be boolean.")
+        try:
+            parse_calling_region(self.region)
+        except InputValidationError as error:
+            raise ConfigurationError(str(error)) from error
 
     @classmethod
     def from_config(cls, config: Mapping[str, object]) -> Phase3Settings:
@@ -97,6 +103,7 @@ class Phase3Settings:
             resources=resources,
             model_type=model_type,
             overwrite=overwrite,
+            region=section.get("region"),  # type: ignore[arg-type]
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -105,6 +112,8 @@ class Phase3Settings:
             "resources": self.resources.to_dict(),
             "model_type": self.model_type.value,
             "overwrite": self.overwrite,
+            "calling_region": self.region,
+            "requested_calling_scope": "region_limited" if self.region is not None else "whole_reference",
         }
 
 
@@ -293,6 +302,7 @@ def run_phase3(
             resources=selected_settings.resources,
             model_type=selected_settings.model_type,
             overwrite=selected_settings.overwrite,
+            region=selected_settings.region,
         )
         call = wrapper.run(
             request,

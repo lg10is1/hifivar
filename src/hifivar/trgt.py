@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+import shutil
+import stat
 from collections.abc import Collection
 from dataclasses import dataclass
 from enum import Enum
@@ -11,7 +13,7 @@ from pathlib import Path
 from hifivar import validation
 from hifivar.alignment import AlignmentOutputFormat
 from hifivar.alignment_postprocess import AlignmentArtifact, validate_alignment_artifact
-from hifivar.command import CommandRunner, format_command
+from hifivar.command import CommandRunner, _default_stdout_log_path, format_command
 from hifivar.exceptions import InputValidationError, OutputValidationError, ToolVersionError
 from hifivar.logging_utils import get_logger
 from hifivar.tr import TandemRepeatArtifact, TandemRepeatCatalog, validate_tandem_repeat_outputs
@@ -267,6 +269,8 @@ class TrgtWrapper:
         redact_values: Collection[str] | None = None,
         stderr_path: str | Path | None = None,
     ) -> TrgtResult:
+        self._validate_contract(request)
+        self._protect_write_paths(request, stderr_path=stderr_path)
         self._validate_inputs(request)
         commands = self.plan_commands(request, redact_values=redact_values)
         if dry_run:
@@ -347,6 +351,73 @@ class TrgtWrapper:
         validate_alignment_artifact(request.artifact, require_index=True)
         request.catalog.validate(request.artifact.reference)
 
+    def _protect_write_paths(
+        self,
+        request: TrgtRequest,
+        *,
+        stderr_path: str | Path | None,
+    ) -> None:
+        """Reject finite output/log collisions before any command or mutation.
+
+        Include CommandRunner's implicit stdout logs and the three discovered
+        executables. This is read-only pre-execution protection, not a sandbox
+        against concurrent filesystem changes or arbitrary tool side effects.
+        """
+        outputs = [
+            ("raw_vcf", request.raw_vcf),
+            ("raw_spanning_bam", request.raw_spanning_bam),
+            ("final_vcf", request.final_vcf),
+            ("final_vcf_index", request.final_vcf_index),
+            ("final_spanning_bam", request.final_spanning_bam),
+            ("final_spanning_bam_index", request.final_spanning_bam_index),
+        ]
+        for index in range(5):
+            log = _command_log_path(stderr_path, index)
+            if log is not None:
+                outputs.extend(((f"stderr_{index}", log),
+                                (f"stdout_{index}", _default_stdout_log_path(log))))
+        checked = [(label, path, *_inspect_write_path(path)) for label, path in outputs]
+        for index, (label, path, resolved, identity, directory) in enumerate(checked):
+            if directory:
+                raise OutputValidationError(
+                    f"TRGT_OUTPUT_PROTECTION: output/log '{label}' is a directory: '{path}'."
+                )
+            for other_label, other_path, other_resolved, other_identity, _ in checked[:index]:
+                if _paths_overlap(resolved, identity, other_resolved, other_identity):
+                    raise OutputValidationError(
+                        f"TRGT_OUTPUT_PROTECTION: output/log aliases collide: '{label}' "
+                        f"'{path}' and '{other_label}' '{other_path}'."
+                    )
+        resources = {
+            request.artifact.path,
+            request.artifact.reference.fasta,
+            request.artifact.reference.fai,
+            Path(f"{request.artifact.reference.fasta}.fai"),
+            request.catalog.path,
+        }
+        if request.artifact.index_path is not None:
+            resources.add(request.artifact.index_path)
+        for executable in (self.executable, self.bcftools_executable, self.samtools_executable):
+            try:
+                found = shutil.which(executable)
+                supplied = Path(executable).expanduser()
+                if found is not None:
+                    resources.add(Path(found))
+                elif supplied.exists() or supplied.is_symlink() or supplied.is_absolute() or supplied.parent != Path("."):
+                    resources.add(supplied)
+            except (OSError, ValueError, RuntimeError) as error:
+                raise OutputValidationError(
+                    f"TRGT_OUTPUT_PROTECTION: cannot inspect executable: {error}"
+                ) from error
+        for resource in sorted(resources, key=str):
+            resolved, identity, _ = _inspect_write_path(resource)
+            for label, path, target, target_identity, _ in checked:
+                if _paths_overlap(target, target_identity, resolved, identity):
+                    raise OutputValidationError(
+                        f"TRGT_OUTPUT_PROTECTION: output/log '{label}' '{path}' "
+                        f"aliases or overlaps immutable input/tool '{resource}'."
+                    )
+
     @staticmethod
     def _prepare_outputs(request: TrgtRequest) -> None:
         outputs = (
@@ -376,6 +447,38 @@ def _command_log_path(base: str | Path | None, command_index: int) -> Path | Non
     path = Path(base)
     labels = ("trgt", "bcftools-sort", "bcftools-index", "samtools-sort", "samtools-index")
     return path.with_name(f"{path.stem}.{labels[command_index]}{path.suffix or '.log'}")
+
+
+def _inspect_write_path(path: str | Path) -> tuple[Path, tuple[int, int] | None, bool]:
+    """Resolve one finite path and its inode without creating or reading files."""
+    if not isinstance(path, (str, Path)) or not str(path).strip():
+        raise OutputValidationError("TRGT_OUTPUT_PROTECTION: paths must be nonempty.")
+    try:
+        value = Path(path).expanduser().absolute()
+        resolved = value.resolve()
+        try:
+            info = value.stat()
+        except FileNotFoundError:
+            if value.is_symlink():
+                raise OutputValidationError(
+                    f"TRGT_OUTPUT_PROTECTION: dangling symlink '{value}'."
+                )
+            return resolved, None, False
+        return resolved, (info.st_dev, info.st_ino), stat.S_ISDIR(info.st_mode)
+    except (OSError, ValueError, RuntimeError) as error:
+        raise OutputValidationError(
+            f"TRGT_OUTPUT_PROTECTION: cannot inspect '{path}': {error}"
+        ) from error
+
+
+def _paths_overlap(
+    left: Path, left_identity: tuple[int, int] | None,
+    right: Path, right_identity: tuple[int, int] | None,
+) -> bool:
+    return (
+        left == right or left in right.parents or right in left.parents
+        or (left_identity is not None and left_identity == right_identity)
+    )
 
 
 def _count_locus_processing_errors(

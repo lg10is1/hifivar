@@ -1,4 +1,6 @@
-# HiFiVar 0.1.0rc2 多样本 Slurm 运行指南
+# HiFiVar 0.1.0rc5 多样本 Slurm 运行指南
+
+[English](../slurm_multi_sample.md)
 
 本文说明如何在 Slurm 集群上批量处理多个 PacBio HiFi uBAM。详细英文部署稿见
 [`../slurm_multi_sample.md`](../slurm_multi_sample.md)。本文是可执行的中文流程，
@@ -40,7 +42,7 @@ Reference：
 ## 3. 设置运行根目录
 
 ```bash
-export RUN_ROOT="/work/hifivar/realdata_validation/example_3sample_rc2"
+export RUN_ROOT="/work/hifivar/realdata_validation/example_3sample_rc5"
 export REFERENCE_FASTA="/data/project/references/GRCh38.fa"
 
 mkdir -p "$RUN_ROOT"/{configs/slurm,slurm,alignments,logs/alignment,logs/workflow,work,tmp,results,validation}
@@ -260,7 +262,7 @@ SAMPLE_C	<RUN_ROOT>/alignments/SAMPLE_C.aligned.bam	bam
 
 ```yaml
 project:
-  name: example_3sample_rc2
+  name: example_3sample_rc5
 
 reference:
   fasta: /data/project/references/GRCh38.fa
@@ -314,7 +316,7 @@ benchmark:
 ## 10. 配置验证和 DAG dry-run
 
 ```bash
-conda activate hifivar-rc2-public-test
+conda activate hifivar-rc5-public-test
 unset PYTHONPATH PYTHONHOME
 
 hifivar --config "$RUN_ROOT/configs/calling.yaml" config validate
@@ -336,11 +338,11 @@ caller 时，会产生最多十二个样本/caller 任务，但实际依赖关�
 
 ## 11. 准备 Snakemake Slurm executor
 
-不要直接污染已经验证的 RC2 环境；建议克隆：
+不要直接污染已经验证的 RC5 环境；建议克隆：
 
 ```bash
-mamba create -n hifivar-rc2-slurm --clone hifivar-rc2-public-test
-conda activate hifivar-rc2-slurm
+mamba create -n hifivar-rc5-slurm --clone hifivar-rc5-public-test
+conda activate hifivar-rc5-slurm
 python -m pip install 'snakemake-executor-plugin-slurm==2.7.1'
 
 snakemake --version
@@ -401,7 +403,7 @@ set-resources:
 先 dry-run：
 
 ```bash
-conda activate hifivar-rc2-slurm
+conda activate hifivar-rc5-slurm
 unset PYTHONPATH PYTHONHOME
 
 snakemake \
@@ -444,7 +446,7 @@ Snakemake。保存为 `$RUN_ROOT/slurm/run_calling_single_node.sbatch`：
 
 set -euo pipefail
 source <CONDA_ROOT>/etc/profile.d/conda.sh
-conda activate hifivar-rc2-public-test
+conda activate hifivar-rc5-public-test
 unset PYTHONPATH PYTHONHOME
 
 : "${RUN_ROOT:?RUN_ROOT未传入}"
@@ -477,7 +479,7 @@ sbatch --export=ALL,RUN_ROOT="$RUN_ROOT" slurm/run_calling_single_node.sbatch
 
 ## 15. 初始资源建议
 
-以下只是 RC2 起点，应根据 `sacct`、覆盖度、日志和集群限制调整：
+以下只是 RC5 起点，应根据 `sacct`、覆盖度、日志和集群限制调整：
 
 | 阶段 | 三样本任务数 | 每任务CPU | 每任务内存 | 初始时限 |
 |---|---:|---:|---:|---:|
@@ -510,7 +512,7 @@ sample	track	state	source_path	index_path	source_tool	source_version	reference_b
 ```yaml
 cohort:
   enabled: true
-  cohort_id: EXAMPLE_3SAMPLE_RC2
+  cohort_id: EXAMPLE_3SAMPLE_RC5
   input_manifest: <RUN_ROOT>/configs/cohort_inputs.tsv
   overwrite: false
   small_variants:

@@ -1,5 +1,7 @@
 # Security policy
 
+[简体中文](SECURITY.zh-CN.md)
+
 Do not report credentials, access tokens, private hostnames, patient identifiers
 or controlled genomic data in a public issue.
 

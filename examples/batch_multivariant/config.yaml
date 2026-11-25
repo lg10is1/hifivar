@@ -1,0 +1,121 @@
+# GitHub RC5 template; not a command for RC1-RC4.
+# Replace /work paths, provision every tool/resource, then inspect a fresh plan.
+# These scheduler reservations are examples, not WGS resource guarantees.
+reference:
+  fasta: /work/resources/GRCh38.fa
+  build: GRCh38
+samples:
+  sheet: samples.tsv
+runtime:
+  threads: 8
+  tmpdir: null
+paths:
+  workdir: null
+  outdir: null
+logging:
+  file: null
+workflow:
+  memory_mb: 262144
+  samtools_executable: samtools
+  downstream_source_plan: source_plan.yaml
+alignment:
+  enabled: false
+small:
+  enabled: true
+  execution_mode: apptainer
+  deepvariant_image: /work/resources/deepvariant_1.10.0.sif
+  model_type: PACBIO
+  region: null
+  threads: 4
+  max_concurrent_samples: 1
+  memory_mb: 64000
+  overwrite: false
+sv:
+  enabled: true
+  overwrite: false
+  sawfish:
+    enabled: true
+    executable: sawfish
+    threads: 4
+    memory_mb: 32000
+    disable_cnv: false
+  sniffles2:
+    enabled: true
+    executable: sniffles
+    threads: 4
+    memory_mb: 16000
+  pbsv:
+    enabled: true
+    executable: pbsv
+    threads: 4
+    memory_mb: 32000
+  cutesv:
+    enabled: true
+    executable: cuteSV
+    threads: 4
+    memory_mb: 16000
+  finalization:
+    bgzip_executable: bgzip
+    tabix_executable: tabix
+  harmonization:
+    enabled: true
+    jasmine_executable: jasmine
+    truvari_executable: truvari
+    bgzip_executable: bgzip
+    tabix_executable: tabix
+    threads: 2
+    memory_mb: 32000
+    overwrite: false
+tr:
+  enabled: true
+  catalog: /work/resources/repeats.GRCh38.bed
+  catalog_reference_build: GRCh38
+  executable: trgt
+  bcftools_executable: bcftools
+  samtools_executable: samtools
+  threads: 4
+  memory_mb: 16000
+  karyotype: auto
+  overwrite: false
+phasing:
+  enabled: true
+  executable: hiphase
+  tabix_executable: tabix
+  sv_caller: pbsv
+  include_tr: true
+  global_realignment: auto
+  threads: 4
+  memory_mb: 32000
+  overwrite: false
+cohort:
+  enabled: true
+  cohort_id: COHORT01
+  input_manifest: null
+  overwrite: false
+  small_variants:
+    enabled: true
+    glnexus_executable: glnexus_cli
+    bcftools_executable: bcftools
+    preset: DeepVariantWGS
+    threads: 4
+    memory_gb: 192
+  sv:
+    enabled: true
+    threads: 1
+    memory_mb: 8000
+  tr:
+    enabled: true
+    threads: 1
+    memory_mb: 8000
+assembly:
+  enabled: false
+assembly_sv:
+  enabled: false
+annotation:
+  enabled: false
+benchmark:
+  enabled: false
+review:
+  enabled: false
+low_depth:
+  enabled: false

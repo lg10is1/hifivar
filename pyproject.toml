@@ -43,9 +43,20 @@ dev = [
   "pytest>=8",
   "pytest-cov>=5",
   "setuptools>=77",
+  "Pillow>=10.4",
 ]
 workflow = [
   "snakemake>=8,<10",
+]
+review = [
+  "Pillow>=10.4",
+]
+alphagenome = [
+  "alphagenome==0.10.0",
+]
+sv-benchmark = [
+  "pysam>=0.23.3,<0.24",
+  "truvari==5.4.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -58,6 +69,7 @@ version = { attr = "hifivar.__version__" }
 hifivar = [
   "resources/configs/*.yaml",
   "resources/configs/presets/*.yaml",
+  "resources/policies/*.json",
 ]
 
 [tool.setuptools.data-files]

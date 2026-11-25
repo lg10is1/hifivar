@@ -1,0 +1,39 @@
+# Source intent only; success requires the same attempt's native receipts.
+schema_version: 1
+cohort:
+  - sample_id: SAMPLE_A
+    track: small_variants
+    origin: GENERATED
+    producer: small.deepvariant
+    output_role: gvcf
+    reference_build: GRCh38
+  - sample_id: SAMPLE_A
+    track: sv
+    origin: GENERATED
+    producer: sv.harmonization
+    output_role: vcf
+    reference_build: GRCh38
+  - sample_id: SAMPLE_A
+    track: tr
+    origin: GENERATED
+    producer: tr.trgt
+    output_role: vcf
+    reference_build: GRCh38
+  - sample_id: SAMPLE_B
+    track: small_variants
+    origin: GENERATED
+    producer: small.deepvariant
+    output_role: gvcf
+    reference_build: GRCh38
+  - sample_id: SAMPLE_B
+    track: sv
+    origin: GENERATED
+    producer: sv.harmonization
+    output_role: vcf
+    reference_build: GRCh38
+  - sample_id: SAMPLE_B
+    track: tr
+    origin: GENERATED
+    producer: tr.trgt
+    output_role: vcf
+    reference_build: GRCh38

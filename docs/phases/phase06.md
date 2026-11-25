@@ -1,5 +1,17 @@
 # Phase 6: HiPhase Read-based Phasing
 
+[中文阶段说明](../zh_CN/phases/phase06.md)
+
+## Later optional joint-source development increment
+
+The unpublished source now accepts an explicitly selected pbsv/Sawfish SV
+and/or TRGT VCF alongside the small-variant input. Configuration, independent
+Phase6 API, modular DAG and phasing receipt keep the category outputs separate.
+Small-only defaults are preserved; local tests do not establish exact-package
+native joint validation or phase accuracy. See [joint phasing](../joint_phasing.md).
+The COMPLETE statements and exclusions below preserve the historical minimum
+small-only Phase 6 gate, not universal completion of later optional modes.
+
 **Phase 6 status: COMPLETE**
 
 ## Phase 6.1: Contract and data model -- COMPLETE

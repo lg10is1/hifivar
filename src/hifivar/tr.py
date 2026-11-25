@@ -30,7 +30,7 @@ class TandemRepeatCatalog:
     def validate(self, reference: ReferenceGenome) -> "TandemRepeatCatalog":
         """Stream catalog rows and validate the required TRGT fields."""
         validation.validate_file(self.path, require_nonempty=True)
-        reference_names = {contig.name for contig in reference.contigs}
+        reference_lengths = {contig.name: contig.length for contig in reference.contigs}
         records = 0
         identifiers: set[str] = set()
         try:
@@ -45,7 +45,7 @@ class TandemRepeatCatalog:
                             f"TRGT catalog '{self.path}' line {line_number} requires at least four tab-separated fields."
                         )
                     contig, start_text, end_text, annotations = fields[:4]
-                    if contig not in reference_names:
+                    if contig not in reference_lengths:
                         raise ReferenceError(
                             f"REFERENCE_CONTIG_MISMATCH in TRGT catalog '{self.path}' line {line_number}: '{contig}'."
                         )
@@ -58,6 +58,11 @@ class TandemRepeatCatalog:
                     if start < 0 or end <= start:
                         raise InputValidationError(
                             f"TRGT catalog '{self.path}' line {line_number} has invalid BED coordinates {start}-{end}."
+                        )
+                    if end > reference_lengths[contig]:
+                        raise InputValidationError(
+                            f"TRGT catalog '{self.path}' line {line_number} BED end {end} "
+                            f"exceeds reference contig '{contig}' length {reference_lengths[contig]}."
                         )
                     tags = _parse_catalog_tags(annotations, self.path, line_number)
                     identifier = tags["ID"]

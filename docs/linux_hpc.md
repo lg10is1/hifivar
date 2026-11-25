@@ -1,5 +1,7 @@
 # Linux/HPC execution
 
+[简体中文](zh_CN/linux_hpc.md)
+
 For end-to-end Chinese instructions, see the
 [single-sample Bash guide](zh_CN/single_sample_bash.md) and
 [multi-sample Slurm guide](zh_CN/slurm_multi_sample.md).

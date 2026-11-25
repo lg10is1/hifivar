@@ -50,28 +50,29 @@ WORKFLOW_TARGETS += [
 ]
 
 
-rule tandem_repeat:
-    input:
-        reference=lambda wildcards: str(TR_CONTEXT.reference.fasta),
-        reference_index=lambda wildcards: str(TR_CONTEXT.reference.fai),
-        alignment=lambda wildcards: TR_ALIGNMENTS[wildcards.sample],
-        alignment_index=lambda wildcards: TR_ALIGNMENT_INDEXES[wildcards.sample],
-        catalog=lambda wildcards: str(TR_CONFIG["catalog"])
-    output:
-        vcf=TR_VCF_PATTERN,
-        vcf_index=f"{TR_VCF_PATTERN}.tbi",
-        spanning_bam=TR_SPANNING_PATTERN,
-        spanning_bam_index=f"{TR_SPANNING_PATTERN}.bai"
-    log:
-        (LOG_ROOT / "tr" / "{sample}.trgt.log").as_posix()
-    threads:
-        int(TR_CONFIG.get("threads", 8))
-    resources:
-        mem_mb=int(TR_CONFIG.get("memory_mb", 16000)),
-        runtime_min=int(TR_CONFIG.get("runtime_minutes", 720))
-    params:
-        raw_prefix=lambda wildcards: (
-            WORK_ROOT / "tr" / wildcards.sample / f"{wildcards.sample}.trgt"
-        ).as_posix()
-    script:
-        "../scripts/run_trgt.py"
+if TR_ENABLED:
+    rule tandem_repeat:
+        input:
+            reference=lambda wildcards: str(TR_CONTEXT.reference.fasta),
+            reference_index=lambda wildcards: str(TR_CONTEXT.reference.fai),
+            alignment=lambda wildcards: TR_ALIGNMENTS[wildcards.sample],
+            alignment_index=lambda wildcards: TR_ALIGNMENT_INDEXES[wildcards.sample],
+            catalog=lambda wildcards: str(TR_CONFIG["catalog"])
+        output:
+            vcf=TR_VCF_PATTERN,
+            vcf_index=f"{TR_VCF_PATTERN}.tbi",
+            spanning_bam=TR_SPANNING_PATTERN,
+            spanning_bam_index=f"{TR_SPANNING_PATTERN}.bai"
+        log:
+            (LOG_ROOT / "tr" / "{sample}.trgt.log").as_posix()
+        threads:
+            int(TR_CONFIG.get("threads", 8))
+        resources:
+            mem_mb=int(TR_CONFIG.get("memory_mb", 16000)),
+            runtime_min=int(TR_CONFIG.get("runtime_minutes", 720))
+        params:
+            raw_prefix=lambda wildcards: (
+                WORK_ROOT / "tr" / wildcards.sample / f"{wildcards.sample}.trgt"
+            ).as_posix()
+        script:
+            "../scripts/run_trgt.py"

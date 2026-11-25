@@ -33,7 +33,9 @@ class FakeAnnotationRunner:
             )
         if "--output_file" in args:
             Path(args[args.index("--output_file") + 1]).write_text(
-                "#Uploaded_variation\tConsequence\nv1\tfeature\n", encoding="utf-8"
+                "#Uploaded_variation\tLocation\tAllele\tGene\tFeature\tFeature_type\tConsequence\t"
+                "cDNA_position\tCDS_position\tProtein_position\tAmino_acids\tCodons\tExisting_variation\n"
+                "v1\tchr1:10\tT\t-\t-\t-\tintergenic_variant\t-\t-\t-\t-\t-\t-\n", encoding="utf-8"
             )
         return CommandResult(args, 0, "", "", 0.2, None, True)
 
@@ -66,8 +68,9 @@ def test_phase11_small_sv_tr_annotation_and_prioritization(tmp_path):
     ):
         vcf = tmp_path / f"S1.{category.value}.vcf"
         vcf.write_text(
-            "##fileformat=VCFv4.3\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
-            "chr1\t10\tv1\tA\tT\t.\tPASS\t.\n",
+            "##fileformat=VCFv4.3\n##contig=<ID=chr1,length=1000>\n"
+            "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\n"
+            "chr1\t10\tv1\tA\tT\t.\tPASS\t.\tGT\t0/1\n",
             encoding="utf-8",
         )
         originals[vcf] = vcf.read_bytes()

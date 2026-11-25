@@ -1,5 +1,7 @@
 # Phase 15 — Low-depth HiFi benchmark and optimization
 
+[中文阶段说明](../zh_CN/phases/phase15.md)
+
 Status: **IMPLEMENTATION COMPLETE; LINUX/HPC SCIENTIFIC VALIDATION REQUIRED**  
 Phase 16: **NOT STARTED**
 

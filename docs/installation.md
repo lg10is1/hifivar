@@ -1,113 +1,46 @@
-# Installation
+# Install HiFiVar 0.1.0rc5
 
-[English](installation.md) | [简体中文](zh_CN/installation.md)
+[简体中文](zh_CN/installation.md)
 
-HiFiVar targets Linux/HPC for production. Windows supports Python, config,
-packaging, fake/mock tests and Snakemake dry-run, but not the formal real-tool
-workflow.
+Use Linux or an HPC compute node for native analysis. Python 3.12 with Snakemake 8 or 9 is recommended. Configure caller software, images, reference and catalog separately.
 
-## Supported core
+## GitHub wheel
 
-- Python 3.10, 3.11 or 3.12;
-- Snakemake 8 or 9 for workflow execution;
-- PyYAML 6 or newer.
+Download the three assets from [the RC5 release](https://github.com/lg10is1/hifivar/releases/tag/v0.1.0-rc5) in a new directory.
 
-External tools and scientific databases are provisioned separately using
-`docs/deployment.md`.
-
-## GitHub release wheel
-
-Download both release artifacts and the published SHA256 checksums from the
-[`v0.1.0-rc4` release](https://github.com/lg10is1/hifivar/releases/tag/v0.1.0-rc4):
-
-```bash
-curl -fLO https://github.com/lg10is1/hifivar/releases/download/v0.1.0-rc4/hifivar-0.1.0rc4-py3-none-any.whl
-curl -fLO https://github.com/lg10is1/hifivar/releases/download/v0.1.0-rc4/hifivar-0.1.0rc4.tar.gz
-curl -fLO https://github.com/lg10is1/hifivar/releases/download/v0.1.0-rc4/SHA256SUMS
-sha256sum -c SHA256SUMS
-```
-
-Install the verified wheel:
-
-```bash
-python3 -m venv hifivar-env
-source hifivar-env/bin/activate
-python -m pip install --upgrade pip
-python -m pip install './hifivar-0.1.0rc4-py3-none-any.whl[workflow]'
-```
-
-The expected artifacts are:
-
-- `hifivar-0.1.0rc4-py3-none-any.whl`
-- `hifivar-0.1.0rc4.tar.gz`
-- `SHA256SUMS`
-
-The project is not yet on PyPI. Do not use `pip install hifivar` until a
-separate PyPI publication has been completed and verified.
-
-## Source checkout
-
-```bash
-git clone https://github.com/lg10is1/hifivar.git
-cd hifivar
-git checkout v0.1.0-rc4
-python3 -m venv .venv
+~~~bash
+base=https://github.com/lg10is1/hifivar/releases/download/v0.1.0-rc5
+wheel=hifivar-0.1.0rc5-py3-none-any.whl
+for asset in "$wheel" hifivar-0.1.0rc5.tar.gz SHA256SUMS; do
+  curl -fL "$base/$asset" -o "$asset" || exit 1
+done
+sha256sum -c SHA256SUMS || exit 1
+python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install '.[workflow]'
-```
-
-Development installation:
-
-```bash
-python -m pip install -e '.[dev,workflow]'
-python -m pytest -p no:cacheprovider
-```
-
-## Conda/Mamba source environment
-
-```bash
-git clone https://github.com/lg10is1/hifivar.git
-cd hifivar
-mamba env create -f environment.yml
-conda activate hifivar
-```
-
-The local recipe depends on packages from both conda-forge and Bioconda. Build
-it with:
-
-```bash
-conda build -c conda-forge -c bioconda conda-recipe
-```
-
-This validates the local recipe only; HiFiVar is not yet published to
-Bioconda or conda-forge.
-
-## Docker and Apptainer
-
-See `docs/containers.md`. Both definitions package only the core framework and
-workflow. Real Docker/Apptainer build results remain pending independent Linux
-validation for this distribution delta.
-
-## Installation verification
-
-```bash
-hifivar --help
+python -m pip install "./$wheel[workflow]"
 hifivar --version
 hifivar config validate
 hifivar doctor
-python -c 'from hifivar.package_resources import installed_workflow_root; print(installed_workflow_root())'
-```
+~~~
 
-The final command must print a directory containing `Snakefile`, `rules/`,
-`scripts/` and `envs/`.
+Expected version: `hifivar 0.1.0rc5`. Earlier development packages with the same version string have distinct checksums.
 
-## Version policy
+## Tagged source
 
-`src/hifivar/__init__.py` is the canonical version source. Package metadata and
-the CLI must both report the PEP 440 version `0.1.0rc4`.
+~~~bash
+git clone --branch v0.1.0-rc5 --single-branch https://github.com/lg10is1/hifivar.git
+cd hifivar
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install '.[workflow]'
+~~~
 
-## License
+## Installed workflow check
 
-HiFiVar is Apache-2.0. External executables, containers, references, databases
-and caches are not redistributed and retain their own terms.
+~~~bash
+WORKFLOW_ROOT="$(python -c 'from hifivar.package_resources import installed_workflow_root; print(installed_workflow_root())')"
+hifivar --preset standard config dump-effective --output effective_config.yaml
+snakemake --snakefile "$WORKFLOW_ROOT/Snakefile" --configfile effective_config.yaml --cores 1 --dry-run
+~~~
+
+This plan checks workflow infrastructure. Continue with a caller-configured sample in the [quick start](quickstart.md). [Conda and containers](containers.md) describes local builds. To build the recipe locally use `conda build -c conda-forge -c bioconda conda-recipe`. Optional extras `review`, `sv-benchmark` and `alphagenome` support the corresponding features.

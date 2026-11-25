@@ -7,6 +7,7 @@ import struct
 import zlib
 from pathlib import Path
 
+import pytest
 import yaml
 
 from hifivar.command import CommandResult
@@ -91,9 +92,18 @@ class Phase2And3Runner:
         return CommandResult(args, 0, "", "", 1.0, None, True)
 
 
+def _assert_phase3_executable_scope(commands: list[tuple[str, ...]]) -> None:
+    """Keep native mock execution separate from harmless path substrings."""
+    assert commands and all(command for command in commands)
+    assert {command[0] for command in commands} == {"pbmm2", "samtools", "run_deepvariant"}
+
+
+@pytest.mark.parametrize("path_label", ["neutral", "trgt_public_consumer", "sawfish", "deepvariant"])
 def test_analysis_context_through_alignment_and_deepvariant_provenance(
-    tmp_path: Path,
+    tmp_path: Path, path_label: str,
 ) -> None:
+    tmp_path = tmp_path / path_label
+    tmp_path.mkdir()
     data = tmp_path / "data"
     data.mkdir()
     fasta = data / "reference.fa"
@@ -142,12 +152,17 @@ def test_analysis_context_through_alignment_and_deepvariant_provenance(
     assert executables.count("pbmm2") == 2
     assert executables.count("samtools") == 2
     assert executables.count("run_deepvariant") == 2
-    forbidden = ("sawfish", "sniffles", "pbsv", "cutesv", "trgt")
-    command_text = "\n".join(" ".join(command) for command in runner.commands).lower()
-    assert all(word not in command_text for word in forbidden)
+    _assert_phase3_executable_scope(runner.commands)
 
     json_path = phase3.write_json(tmp_path / "reports" / "phase3.json")
     yaml_path = phase3.write_yaml(tmp_path / "reports" / "phase3.yaml")
     assert json.loads(json_path.read_text(encoding="utf-8")) == yaml.safe_load(
         yaml_path.read_text(encoding="utf-8")
     )
+
+
+@pytest.mark.parametrize("unexpected", ["trgt", "sawfish", "pbsv", "python"])
+def test_phase3_scope_guard_rejects_unexpected_executable_tokens(unexpected: str) -> None:
+    commands = [("pbmm2", "--version"), ("samtools", "--version"), ("run_deepvariant", "--version"), (unexpected, "--version")]
+    with pytest.raises(AssertionError):
+        _assert_phase3_executable_scope(commands)

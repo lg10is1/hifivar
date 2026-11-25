@@ -14,7 +14,7 @@ reference build, and truth datasets documented below.
   may yield different results.
 - The CMRG read-SV benchmark covers **challenging medically relevant genes
   only** and is **not** a whole-genome SV truth benchmark.
-- No unmatched-truth SCZ result is presented as an accuracy benchmark.
+- Results from samples without matched truth are not accuracy benchmarks.
 - Caller support count is descriptive evidence, not biological truth.
 - Annotation or functional impact is not call confidence.
 - No clinical interpretation is provided.
@@ -126,6 +126,13 @@ performance tables or figures.
 | Sniffles2 | 2.8.0 | 160 | 7 | 56 | 0.958 | 0.741 | 0.836 | 0.875 |
 | pbsv | 2.11.0 | 142 | 32 | 74 | 0.816 | 0.657 | 0.728 | 0.873 |
 | cuteSV | 2.1.4 | 34 | 3 | 182 | 0.919 | 0.157 | 0.269 | 0.882 |
+
+**Historical Sawfish identity qualification.** Its native/exported VCF reports
+`UnknownSampleName`; the complete original-read-to-derived-BAM identity chain
+has not been closed. The row is retained as an archived numerical result, not
+as strict sample-identity-validated evidence. Exclude it from unqualified
+comparative figures or identify the unresolved provenance explicitly. A newer
+successful regional Sawfish run does not validate this older artifact.
 
 Every public statement must say that these are **CMRG-region results**
 and are **not whole-genome SV performance**. Do not claim one caller

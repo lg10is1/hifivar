@@ -1,10 +1,65 @@
 # Phase 10 — IGV / Manual Variant Review
 
+[中文阶段说明](../zh_CN/phases/phase10.md)
+
 **Status: COMPLETE**
 
-Phase 11 annotation is **NOT STARTED**.
+## Development CLI extension (14 October 2026)
+
+The original Phase 10 history below remains unchanged. The unpublished source
+now exposes `hifivar review prepare` and `hifivar review import-decisions`:
+offline batch/pending-manifest preparation and separately recorded explicit
+reviewer decisions. Preparation does not execute IGV or claim screenshots;
+decision import does not authenticate a reviewer or establish truth. This
+extension is not in historical release assets and requires separate Linux
+revalidation. See [English guide](../review_cli.md) and
+[中文指南](../zh_CN/review_cli.md).
+
+Historical phase boundary: annotation was outside the original Phase 10.
+Later annotation development is documented separately; the Phase 10 completion
+status does not certify annotation or a manual review.
+
+### Standalone TR plotting consumer (unreleased source)
+
+The later explicit [`review tr-plot --plan`](../trgt_plot.md) entry consumes one
+existing TRGT 5.1.0 locus and its spanning reads. It supports allele/motifs SVG
+only, with exact seven-file identities and a fresh output directory. It is not
+part of the IGV rule below, does not rerun TR genotyping and does not implement
+deepdive, methylation or parental-phase validation. Its software/native/pixel
+acceptance and package identity are separate from historical Phase 10.
 
 ## Scope
+
+The unpublished [review source library](../review_sources.md) binds explicit
+source records to existing ReviewTarget objects without commands or writes.
+The separate development execution bridge now consumes this foundation through
+an explicit source plan, review-only DAG, native step receipt and report track.
+The library itself remains read-only; historical Phase 10 completion and old
+release assets do not establish the new bridge or an actual human decision.
+
+### Development write-path safety increment
+
+The unpublished IGV wrapper rejects direct, resolved/symlink and hardlink
+aliases between its write destinations and selected read-only inputs. The
+check includes the batch staging path, all screenshots, explicit logs and the
+implicit stdout log derived by CommandRunner; existing input indexes, selected
+BND native/ledger bundle members, optional TR visualization and the discovered
+executable are protected. Conflicting outputs/logs are rejected before mkdir,
+unlink, file opening or a version command, with a second check after version
+detection. Old screenshots are not removed when version detection fails.
+Phase 10 applies the same guard to its JSON/YAML/TSV manifests and fixed TSV
+staging path before IGV, and rechecks before writing manifests after IGV.
+This finite pre-execution guard is not an OS sandbox or a guarantee against
+concurrent external filesystem changes or arbitrary behavior inside IGV. It
+does not change calling, review status, ALT coordinates or image rendering,
+and is not retroactively present in historical release assets.
+
+未发布源码新增IGV写路径保护：在执行/创建/删除输出之前，检查batch及临时文件、
+截图、显式日志和隐式stdout日志是否与输入、索引、参考、选定BND完整来源包、
+TR可视化或程序文件重合；同时检查符号链接解析和硬链接身份。版本检查后再次
+核对，版本失败不先删除旧截图。这不是操作系统沙箱，不改变calling、人工判定
+或断点坐标。Phase 10的JSON/YAML/TSV清单及固定TSV临时路径也在IGV执行前
+检查，并在IGV完成后、写清单之前再次检查。不应将历史发布包追认为已包含该修复。
 
 Phase 10 adds an optional downstream review path for explicitly selected
 artifacts from Phases 3–9. It does not choose high-confidence variants, alter a
@@ -77,9 +132,10 @@ does not implement ACMG or any clinical-classification field.
 
 All Phase 3–9 source VCFs, BAM/CRAM files, harmonized evidence, and TRGT outputs
 are read-only inputs. Screenshot or IGV failure cannot modify those artifacts.
-TRGT-specific plot/deepdive output is represented only as optional existing
-evidence metadata; Phase 10 neither reruns TRGT nor implements its plotting
-toolchain.
+The original IGV workflow represents pre-existing TRGT visualization as optional
+evidence metadata; it does not rerun TRGT. The separate unreleased consumer above
+adds only native allele/motifs plotting. Deepdive remains unsupported, and neither
+route completes human review or establishes TR accuracy.
 
 ## Configuration and workflow
 

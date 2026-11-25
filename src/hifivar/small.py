@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from hifivar.calling_region import validate_calling_region
+
 from dataclasses import dataclass
 from enum import Enum
 import gzip
@@ -63,6 +65,7 @@ class DeepVariantRequest:
     intermediate_directory: Path | None = None
     logging_directory: Path | None = None
     temporary_directory: Path | None = None
+    region: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.artifact, AlignmentArtifact):
@@ -79,6 +82,7 @@ class DeepVariantRequest:
             )
         if not isinstance(self.overwrite, bool):
             raise InputValidationError("DeepVariant overwrite must be boolean.")
+        validate_calling_region(self.region, self.artifact.reference)
 
         output_vcf = _coerce_path(self.output_vcf, "small VCF")
         output_gvcf = _coerce_path(self.output_gvcf, "gVCF")
@@ -160,6 +164,7 @@ class DeepVariantRequest:
         resources: SmallVariantResources | None = None,
         model_type: SmallVariantModelType = SmallVariantModelType.PACBIO,
         overwrite: bool = False,
+        region: str | None = None,
     ) -> DeepVariantRequest:
         output_root = _coerce_path(output_directory, "small-variant output directory")
         sample_id = artifact.sample_id if isinstance(artifact, AlignmentArtifact) else "sample"
@@ -170,6 +175,7 @@ class DeepVariantRequest:
             resources=resources or SmallVariantResources(),
             model_type=model_type,
             overwrite=overwrite,
+            region=region,
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -178,6 +184,8 @@ class DeepVariantRequest:
             "alignment": self.artifact.to_dict(),
             "reference_fasta": str(self.reference_fasta),
             "model_type": self.model_type.value,
+            "calling_region": self.region,
+            "requested_calling_scope": "region_limited" if self.region is not None else "whole_reference",
             "output_vcf": str(self.output_vcf),
             "output_gvcf": str(self.output_gvcf),
             "output_vcf_index": str(self.output_vcf_index),

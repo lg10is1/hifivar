@@ -7,6 +7,7 @@ import tomllib
 from pathlib import Path
 
 import yaml
+from hifivar import __version__
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -28,12 +29,14 @@ def _load_public_audit_module():
 def test_public_license_and_python_metadata_are_consistent() -> None:
     license_text = _text("LICENSE")
     metadata = tomllib.loads(_text("pyproject.toml"))["project"]
+    citation = yaml.safe_load(_text("CITATION.cff"))
 
     assert "Apache License" in license_text
     assert "Version 2.0, January 2004" in license_text
     assert metadata["license"] == "Apache-2.0"
     assert metadata["license-files"] == ["LICENSE"]
     assert "snakemake>=8,<10" in metadata["optional-dependencies"]["workflow"]
+    assert citation["version"] == __version__
 
 
 def test_conda_core_definitions_are_bounded_and_non_monolithic() -> None:
@@ -45,7 +48,7 @@ def test_conda_core_definitions_are_bounded_and_non_monolithic() -> None:
     assert environment["name"] == "hifivar"
     assert "python=3.12" in dependencies
     assert "snakemake-minimal>=8,<10" in dependencies
-    assert "version = \"0.1.0rc4\"" in recipe
+    assert f'version = "{__version__}"' in recipe
     assert "noarch: python" in recipe
     assert "license: Apache-2.0" in recipe
     assert "deepvariant" not in recipe.lower()
@@ -114,15 +117,36 @@ def test_public_docs_disclose_execution_and_container_boundaries() -> None:
 
     assert "0.1.0rc4" in readme
     assert "0.1.0rc4" in readme_zh
+    assert __version__ in readme
+    assert __version__ in readme_zh
     assert "[简体中文](README.zh-CN.md)" in readme
-    assert "does not yet expose one unified `hifivar run`" in readme
+    # The tagged installation guide must agree with the documented launcher.
+    assert "[`hifivar run`](docs/indexed_bam_run.md)" in readme
+    assert "docs/raw_input_run.md" in readme
+    assert "releases/tag/v0.1.0-rc5" in readme
+    assert "15 October payload" in _text("docs/rc5_candidate.md")
+    candidate_guide = _text("docs/rc5_candidate.md")
+    assert "different manifests and validation scopes" in candidate_guide
+    assert "CRAM remains deferred at the main launcher" in readme
+    assert "docs/capabilities.md" in readme and "docs/capabilities.md" in readme_zh
+    assert "README.zh-CN.md" in _text("MANIFEST.in")
+    capabilities = _text("docs/capabilities.md")
+    assert "GENERATED" in capabilities and "NOT_REVIEWED" in capabilities
+    assert "separate" in capabilities and "report" in capabilities
+    assert "docs/raw_input_run.md" in readme_zh
+    raw_guide = _text("docs/raw_input_run.md")
+    assert "RAW_INPUT_PLAN_ONLY" in raw_guide
+    assert "not a single raw-input" in raw_guide
+    assert "no FASTQ conversion" in raw_guide
     assert "consume an existing indexed" in readme
     assert "BAM/CRAM" in readme
     assert "FASTQ boundary" in quickstart
     assert "`/data/...` and" in quickstart
     assert "`/work/...` path" in quickstart
-    assert "没有统一的 `hifivar run`" in quickstart_zh
+    assert "RAW_INPUT_PLAN_ONLY" in quickstart_zh
+    assert "run --run-dir ./runs/sample01 --resume" in quickstart_zh
     assert "0.1.0rc4" in installation_zh
+    assert __version__ in installation_zh
     assert "does not contain PAV, DeepVariant" in containers
 
 

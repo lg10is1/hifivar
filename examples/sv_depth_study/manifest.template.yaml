@@ -1,0 +1,147 @@
+# Template only: replace data/tool paths with existing verified Linux paths.
+# Preserve the original mixed v5.0q truth; query-only INS/DEL filtering is explicit.
+schema_version: 1
+study_id: HG002_READSV_DEPTH_BASELINE
+sample_id: HG002
+reference:
+  fasta: reference/GRCh38_no_alt.fa
+  build: GRCh38
+truth:
+  vcf: truth/HG002_v5.0q_original_mixed.vcf.gz
+  confident_bed: truth/HG002_v5.0q_confident.bed
+  version: 5.0q_DRAFT
+  source: https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/AshkenazimTrio/HG002_NA24385_son/v5.0q/
+  reference_build: GRCh38
+tools:
+  samtools_executable: samtools
+  truvari_executable: truvari
+  bcftools_executable: bcftools
+  truvari_version: 5.4.0
+thresholds:
+  sizemin: 50
+  sizemax: 50000
+  refdist: 2000
+  chunksize: 5000
+  pctseq: 0.7
+  pctsize: 0.7
+  pick: ac
+  pass_only: true
+  refine: true
+sv:
+  enabled: true
+  overwrite: false
+  sawfish:
+    enabled: true
+    executable: sawfish
+    threads: 4
+    memory_mb: 32000
+    runtime_minutes: 1440
+    disable_cnv: false
+  sniffles2:
+    enabled: true
+    executable: sniffles
+    threads: 4
+    memory_mb: 16000
+    runtime_minutes: 720
+    minimum_support: null
+    minimum_sv_length: 50
+  pbsv:
+    enabled: true
+    executable: pbsv
+    threads: 4
+    memory_mb: 32000
+    runtime_minutes: 1440
+  cutesv:
+    enabled: true
+    executable: cuteSV
+    threads: 4
+    memory_mb: 16000
+    runtime_minutes: 720
+    minimum_support: 10
+    minimum_sv_size: 30
+    max_cluster_bias_ins: 1000
+    diff_ratio_merging_ins: 0.9
+    max_cluster_bias_del: 1000
+    diff_ratio_merging_del: 0.5
+    genotype: true
+  finalization:
+    bgzip_executable: bgzip
+    tabix_executable: tabix
+design:
+  sampling_unit: pacbio_molecule
+  nested: true
+  biological_samples: 1
+  full_input_nominal_depth: 20
+units:
+- id: 5x-r1
+  nominal_depth: 5
+  replicate: 1
+  sampling_fraction: 0.25
+  bam: phase15/alignment/5x/replicate-1.bam
+  coverage_json: phase15/coverage/5x/replicate-1.coverage.json
+- id: 5x-r2
+  nominal_depth: 5
+  replicate: 2
+  sampling_fraction: 0.25
+  bam: phase15/alignment/5x/replicate-2.bam
+  coverage_json: phase15/coverage/5x/replicate-2.coverage.json
+- id: 5x-r3
+  nominal_depth: 5
+  replicate: 3
+  sampling_fraction: 0.25
+  bam: phase15/alignment/5x/replicate-3.bam
+  coverage_json: phase15/coverage/5x/replicate-3.coverage.json
+- id: 10x-r1
+  nominal_depth: 10
+  replicate: 1
+  sampling_fraction: 0.5
+  bam: phase15/alignment/10x/replicate-1.bam
+  coverage_json: phase15/coverage/10x/replicate-1.coverage.json
+- id: 10x-r2
+  nominal_depth: 10
+  replicate: 2
+  sampling_fraction: 0.5
+  bam: phase15/alignment/10x/replicate-2.bam
+  coverage_json: phase15/coverage/10x/replicate-2.coverage.json
+- id: 10x-r3
+  nominal_depth: 10
+  replicate: 3
+  sampling_fraction: 0.5
+  bam: phase15/alignment/10x/replicate-3.bam
+  coverage_json: phase15/coverage/10x/replicate-3.coverage.json
+- id: 15x-r1
+  nominal_depth: 15
+  replicate: 1
+  sampling_fraction: 0.75
+  bam: phase15/alignment/15x/replicate-1.bam
+  coverage_json: phase15/coverage/15x/replicate-1.coverage.json
+- id: 15x-r2
+  nominal_depth: 15
+  replicate: 2
+  sampling_fraction: 0.75
+  bam: phase15/alignment/15x/replicate-2.bam
+  coverage_json: phase15/coverage/15x/replicate-2.coverage.json
+- id: 15x-r3
+  nominal_depth: 15
+  replicate: 3
+  sampling_fraction: 0.75
+  bam: phase15/alignment/15x/replicate-3.bam
+  coverage_json: phase15/coverage/15x/replicate-3.coverage.json
+- id: 20x-r1
+  nominal_depth: 20
+  replicate: 1
+  sampling_fraction: 1.0
+  bam: phase15/alignment/20x/replicate-1.bam
+  coverage_json: phase15/coverage/20x/replicate-1.coverage.json
+- id: 20x-r2
+  nominal_depth: 20
+  replicate: 2
+  sampling_fraction: 1.0
+  bam: phase15/alignment/20x/replicate-2.bam
+  coverage_json: phase15/coverage/20x/replicate-2.coverage.json
+- id: 20x-r3
+  nominal_depth: 20
+  replicate: 3
+  sampling_fraction: 1.0
+  bam: phase15/alignment/20x/replicate-3.bam
+  coverage_json: phase15/coverage/20x/replicate-3.coverage.json

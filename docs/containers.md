@@ -1,5 +1,7 @@
 # Conda, Docker and Apptainer
 
+[简体中文](zh_CN/containers.md)
+
 HiFiVar uses a core-plus-tools deployment. Core distributions contain Python,
 HiFiVar, Snakemake and packaged workflow resources. Heavy callers, references
 and databases remain external.
@@ -30,9 +32,9 @@ or conda-forge, so public channel install commands must not be advertised yet.
 Build from the repository root:
 
 ```bash
-docker build --pull -t hifivar:0.1.0rc2 .
-docker run --rm hifivar:0.1.0rc2 --version
-docker run --rm hifivar:0.1.0rc2 config validate
+docker build --pull -t hifivar:0.1.0rc5 .
+docker run --rm hifivar:0.1.0rc5 --version
+docker run --rm hifivar:0.1.0rc5 config validate
 ```
 
 The image runs as non-root UID/GID 10001. Mount a writable work directory:
@@ -41,7 +43,7 @@ The image runs as non-root UID/GID 10001. Mount a writable work directory:
 docker run --rm \
   --user "$(id -u):$(id -g)" \
   -v "$PWD:/work" \
-  hifivar:0.1.0rc2 \
+  hifivar:0.1.0rc5 \
   --config /work/config.yaml config validate
 ```
 
@@ -51,7 +53,7 @@ The image entrypoint is `hifivar`. To invoke bundled Snakemake, override it:
 docker run --rm \
   --entrypoint /bin/sh \
   -v "$PWD:/work" \
-  hifivar:0.1.0rc2 \
+  hifivar:0.1.0rc5 \
   -c 'WORKFLOW_ROOT=$(python -c "from hifivar.package_resources import installed_workflow_root; print(installed_workflow_root())"); snakemake --snakefile "$WORKFLOW_ROOT/Snakefile" --configfile /work/effective_config.yaml --cores 1 --dry-run'
 ```
 
@@ -62,9 +64,9 @@ Docker support remains `NOT_RUN` until independently built on Linux or CI.
 Build from the repository root so `%files` sources resolve correctly:
 
 ```bash
-apptainer build hifivar_0.1.0rc2.sif containers/hifivar.def
-apptainer test hifivar_0.1.0rc2.sif
-apptainer run hifivar_0.1.0rc2.sif --version
+apptainer build hifivar_0.1.0rc5.sif containers/hifivar.def
+apptainer test hifivar_0.1.0rc5.sif
+apptainer run hifivar_0.1.0rc5.sif --version
 ```
 
 On sites where unprivileged build is disabled, build the OCI image elsewhere
@@ -77,7 +79,7 @@ Bind the project and data explicitly:
 apptainer run \
   --bind "$PWD:/work" \
   --pwd /work \
-  hifivar_0.1.0rc2.sif \
+  hifivar_0.1.0rc5.sif \
   --config /work/config.yaml config validate
 ```
 

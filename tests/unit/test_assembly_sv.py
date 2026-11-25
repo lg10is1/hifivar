@@ -12,6 +12,105 @@ from hifivar.pav import PavResultStatus, PavWrapper
 from hifivar.reference import ReferenceGenome
 from hifivar.svim_asm import SvimAsmResultStatus, SvimAsmWrapper
 
+def _ready_inputs(assemblies):
+    import hashlib
+    from hifivar.ready_assemblies import validate_ready_assembly
+    return tuple(validate_ready_assembly(item.sample_id, item.role, item.path,
+                 hashlib.sha256(item.path.read_bytes()).hexdigest()) for item in assemblies)
+
+@pytest.mark.parametrize("caller", [AssemblySvCaller.PAV, AssemblySvCaller.SVIM_ASM])
+def test_ready_assembly_wrappers_preserve_external_origin(tmp_path, reference, assemblies, caller):
+    ready = _ready_inputs(assemblies)
+    item = request(tmp_path, reference, ready, caller)
+    runner = FakeRunner(item)
+    if caller is AssemblySvCaller.PAV:
+        snakefile = tmp_path / "Snakefile"; snakefile.write_text("# PAV\n")
+        wrapper = PavWrapper(snakefile=snakefile, pav_version="2.4.6", runner=runner)
+    else:
+        wrapper = SvimAsmWrapper(runner=runner)
+    result = wrapper.run(item)
+    assert result.artifact is not None
+    for source in result.artifact.to_dict()["assemblies"]:
+        assert source["input_mode"] == "EXTERNAL_READY"
+        assert source["hifiasm_version"] is None
+        assert source["execution_kind"] == "VALIDATION_ONLY"
+    assert not any("hifiasm" in args[0] for args, _ in runner.calls)
+    for source in ready:
+        source.verify()
+
+def test_ready_generated_mix_is_rejected(tmp_path, reference, assemblies):
+    with pytest.raises(InputValidationError, match="cannot be mixed"):
+        request(tmp_path, reference, (_ready_inputs(assemblies)[0], assemblies[1]), AssemblySvCaller.SVIM_ASM)
+
+@pytest.mark.parametrize("caller", [AssemblySvCaller.PAV, AssemblySvCaller.SVIM_ASM])
+def test_ready_mutation_fails_before_any_tool_probe(tmp_path, reference, assemblies, caller):
+    ready = _ready_inputs(assemblies)
+    item = request(tmp_path, reference, ready, caller)
+    ready[0].path.write_text(">changed\nACGT\n")
+    runner = FakeRunner(item)
+    if caller is AssemblySvCaller.PAV:
+        snakefile = tmp_path / "Snakefile"; snakefile.write_text("# PAV\n")
+        wrapper = PavWrapper(snakefile=snakefile, runner=runner)
+    else:
+        wrapper = SvimAsmWrapper(runner=runner)
+    with pytest.raises(InputValidationError, match="differs"):
+        wrapper.run(item)
+    assert not runner.calls and not item.work_directory.exists()
+
+@pytest.mark.parametrize("caller", [AssemblySvCaller.PAV, AssemblySvCaller.SVIM_ASM])
+def test_ready_log_alias_fails_before_execution(tmp_path, reference, assemblies, caller):
+    import os
+    ready = _ready_inputs(assemblies)
+    item = request(tmp_path, reference, ready, caller)
+    runner = FakeRunner(item)
+    log = tmp_path / "native.log"
+    if caller is AssemblySvCaller.PAV:
+        os.link(ready[0].path, log)
+        snakefile = tmp_path / "Snakefile"; snakefile.write_text("# PAV\n")
+        wrapper = PavWrapper(snakefile=snakefile, runner=runner)
+    else:
+        os.link(ready[0].path, tmp_path / "native.minimap2_haplotype1.log")
+        wrapper = SvimAsmWrapper(runner=runner)
+    with pytest.raises(InputValidationError, match="aliases"):
+        wrapper.run(item, stderr_path=log)
+    assert not runner.calls and not item.work_directory.exists()
+
+@pytest.mark.parametrize("caller", [AssemblySvCaller.PAV, AssemblySvCaller.SVIM_ASM])
+def test_ready_implicit_stdout_alias_fails_before_execution(tmp_path, reference, assemblies, caller):
+    import os
+    ready = _ready_inputs(assemblies)
+    item = request(tmp_path, reference, ready, caller)
+    runner = FakeRunner(item)
+    log = tmp_path / "native.log"
+    if caller is AssemblySvCaller.PAV:
+        os.link(ready[0].path, tmp_path / "native.stdout.log")
+        snakefile = tmp_path / "Snakefile"; snakefile.write_text("# PAV\n")
+        wrapper = PavWrapper(snakefile=snakefile, runner=runner)
+    else:
+        os.link(ready[0].path, tmp_path / "native.samtools_sort_haplotype1.stdout.log")
+        wrapper = SvimAsmWrapper(runner=runner)
+    with pytest.raises(InputValidationError, match="aliases"):
+        wrapper.run(item, stderr_path=log)
+    assert not runner.calls and not item.work_directory.exists()
+
+@pytest.mark.parametrize("caller", [AssemblySvCaller.PAV, AssemblySvCaller.SVIM_ASM])
+def test_ready_workdir_cannot_reuse_stale_files(tmp_path, reference, assemblies, caller):
+    import os
+    ready = _ready_inputs(assemblies)
+    item = request(tmp_path, reference, ready, caller)
+    item.work_directory.mkdir()
+    os.link(ready[0].path, item.work_directory / "stale_native_file")
+    runner = FakeRunner(item)
+    if caller is AssemblySvCaller.PAV:
+        snakefile = tmp_path / "Snakefile"; snakefile.write_text("# PAV\n")
+        wrapper = PavWrapper(snakefile=snakefile, runner=runner)
+    else:
+        wrapper = SvimAsmWrapper(runner=runner)
+    with pytest.raises(InputValidationError, match="new or empty"):
+        wrapper.run(item)
+    assert not runner.calls
+    ready[0].verify()
+
 def write_bgzf(path: Path, payload: bytes) -> None:
     obj = zlib.compressobj(level=6, wbits=-15)
     data = obj.compress(payload) + obj.flush()

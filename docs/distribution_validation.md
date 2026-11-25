@@ -1,5 +1,7 @@
 # Public distribution validation
 
+[简体中文](zh_CN/distribution_validation.md)
+
 Candidate: `HiFiVar 0.1.0rc2`
 
 This document separates locally completed package checks from distribution

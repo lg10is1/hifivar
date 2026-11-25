@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from hifivar.alignment import AlignmentOutputFormat
+from hifivar.attempt_receipts import attempt_step
 from hifivar.alignment_postprocess import (
     AlignmentArtifact,
     AlignmentSortOrder,
@@ -43,6 +44,7 @@ request = DeepVariantRequest(
         runtime_minutes=int(snakemake.resources.runtime_min),  # type: ignore[name-defined]
     ),
     overwrite=bool(small_config.get("overwrite", False)),
+    region=snakemake.params.region,  # type: ignore[name-defined]
     intermediate_directory=Path(str(snakemake.params.intermediate)),  # type: ignore[name-defined]
     logging_directory=Path(str(Path(str(snakemake.log[0])).parent)),  # type: ignore[name-defined]
     temporary_directory=Path(str(snakemake.params.tmpdir)),  # type: ignore[name-defined]
@@ -50,4 +52,16 @@ request = DeepVariantRequest(
 wrapper = DeepVariantWrapper(
     runtime=DeepVariantRuntime.from_config(snakemake.config),  # type: ignore[name-defined]
 )
-wrapper.run(request, stderr_path=Path(str(snakemake.log[0])))  # type: ignore[name-defined]
+receipt_outputs = {
+    "vcf": request.output_vcf, "index": request.output_vcf_index,
+    "gvcf": request.output_gvcf, "gvcf_index": request.output_gvcf_index,
+}
+with attempt_step("small", (request.sample_id,), outputs=receipt_outputs) as receipt:
+    result = wrapper.run(request, stderr_path=Path(str(snakemake.log[0])))  # type: ignore[name-defined]
+    receipt.complete(
+        outputs=receipt_outputs,
+        tool_versions={"deepvariant": result.tool_version},
+        validation={"validated": True, "scope": "WRAPPER_BGZF_VCF_GVCF_HEADERS_EXACT_SAMPLE_CONTIGS_AND_TBI_MAGIC_NOT_ALL_RECORDS"},
+        metadata={"reference_build": reference.build, "reference_build_source": "EXPLICIT_REFERENCE_CONTEXT",
+                  "region": request.region, "tool_version_sources": {"deepvariant": "COMMAND_PROBED"}},
+    )

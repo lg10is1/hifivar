@@ -6,6 +6,7 @@ from hifivar.alignment_postprocess import find_alignment_index
 from hifivar.context import AnalysisContext
 from hifivar.exceptions import WorkflowError
 from hifivar.review import read_review_selection_rows
+from hifivar.junction_consumers import validate_bnd_consumer_bundle
 from hifivar.sample import InputType
 
 
@@ -23,6 +24,7 @@ REVIEW_ALIGNMENT_INDEXES = {}
 REVIEW_SOURCE_VCFS = []
 REVIEW_SOURCE_INDEXES = []
 REVIEW_TRGT_VISUALIZATIONS = []
+REVIEW_BUNDLE_INPUTS = []
 if REVIEW_ENABLED:
     configured_selection = REVIEW_CONFIG.get("selection_file")
     if not isinstance(configured_selection, str) or not configured_selection.strip():
@@ -52,6 +54,14 @@ if REVIEW_ENABLED:
         if not source.is_absolute():
             source = selection_root / source
         REVIEW_SOURCE_VCFS.append(str(source))
+        bundle = (row.get("bnd_bundle_manifest") or "").strip()
+        if bundle:
+            bundle_path = Path(bundle).expanduser()
+            if not bundle_path.is_absolute():
+                bundle_path = selection_root / bundle_path
+            binding = validate_bnd_consumer_bundle(bundle_path, source, REVIEW_CONTEXT.reference, row["sample"].strip())
+            REVIEW_BUNDLE_INPUTS.append(binding["manifest"]["path"])
+            REVIEW_BUNDLE_INPUTS.extend(info["path"] for info in binding["artifacts"].values())
         if str(source).lower().endswith(".vcf.gz"):
             REVIEW_SOURCE_INDEXES.append(f"{source}.tbi")
         visualization = (row.get("trgt_visualization") or "").strip()
@@ -66,6 +76,7 @@ REVIEW_MANIFEST_YAML = (REVIEW_OUTPUT / "review_manifest.yaml").as_posix()
 REVIEW_MANIFEST_TSV = (REVIEW_OUTPUT / "review_manifest.tsv").as_posix()
 REVIEW_BATCH = (REVIEW_OUTPUT / "review.igv.batch").as_posix()
 REVIEW_SCREENSHOTS = (REVIEW_OUTPUT / "screenshots").as_posix()
+REVIEW_PROVENANCE = (REVIEW_OUTPUT / "review_provenance.json").as_posix()
 if REVIEW_ENABLED:
     WORKFLOW_TARGETS += [
         REVIEW_MANIFEST_JSON,
@@ -73,6 +84,7 @@ if REVIEW_ENABLED:
         REVIEW_MANIFEST_TSV,
         REVIEW_BATCH,
         REVIEW_SCREENSHOTS,
+        REVIEW_PROVENANCE,
     ]
 
 
@@ -85,13 +97,15 @@ rule manual_review:
         alignment_indexes=lambda wildcards: list(REVIEW_ALIGNMENT_INDEXES.values()),
         sources=lambda wildcards: REVIEW_SOURCE_VCFS,
         source_indexes=lambda wildcards: REVIEW_SOURCE_INDEXES,
-        trgt_visualizations=lambda wildcards: REVIEW_TRGT_VISUALIZATIONS
+        trgt_visualizations=lambda wildcards: REVIEW_TRGT_VISUALIZATIONS,
+        bnd_bundle=lambda wildcards: REVIEW_BUNDLE_INPUTS
     output:
         manifest_json=REVIEW_MANIFEST_JSON,
         manifest_yaml=REVIEW_MANIFEST_YAML,
         manifest_tsv=REVIEW_MANIFEST_TSV,
         batch=REVIEW_BATCH,
-        screenshots=directory(REVIEW_SCREENSHOTS)
+        screenshots=directory(REVIEW_SCREENSHOTS),
+        provenance=REVIEW_PROVENANCE
     log:
         (LOG_ROOT / "review" / "igv.log").as_posix()
     threads:

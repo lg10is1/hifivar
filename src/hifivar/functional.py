@@ -164,7 +164,7 @@ def run_functional_prioritization(
 
 
 def read_functional_selection(path: str | Path) -> tuple[PrioritizedVariant, ...]:
-    """Read the explicit AlphaGenome candidate list; never rank a whole VCF."""
+    """Read an unambiguous explicit candidate TSV; never rank a whole VCF."""
     source = validate_file(path)
     required = (
         "sample", "source_variant_id", "variant_category", "contig", "position",
@@ -173,17 +173,22 @@ def read_functional_selection(path: str | Path) -> tuple[PrioritizedVariant, ...
     selected: list[PrioritizedVariant] = []
     try:
         with source.open("rt", encoding="utf-8-sig", newline="") as handle:
-            reader = csv.DictReader(handle, delimiter="\t")
+            reader = csv.DictReader(handle, delimiter="\t", strict=True)
             fields = tuple(reader.fieldnames or ())
-            if set(fields) != set(required):
+            if (len(fields) != len(required) or len(set(fields)) != len(fields)
+                    or set(fields) != set(required)):
                 raise InputValidationError(
-                    f"Functional selection columns must be exactly {required!r}."
+                    "Functional selection header must contain each of the nine documented columns exactly once."
                 )
             for line_number, row in enumerate(reader, 2):
-                annotation = Path(row["source_annotation"]).expanduser()
-                if not annotation.is_absolute():
-                    annotation = source.parent / annotation
+                if set(row) != set(required) or any(value is None for value in row.values()):
+                    raise InputValidationError(
+                        f"Functional selection row {line_number} must contain exactly nine fields."
+                    )
                 try:
+                    annotation = Path(row["source_annotation"]).expanduser()
+                    if not annotation.is_absolute():
+                        annotation = source.parent / annotation
                     selected.append(
                         PrioritizedVariant(
                             row["sample"], row["source_variant_id"],
@@ -192,14 +197,15 @@ def read_functional_selection(path: str | Path) -> tuple[PrioritizedVariant, ...
                             row["alternate_bases"], annotation, row["selection_reason"],
                         )
                     )
-                except (KeyError, ValueError, TypeError) as error:
+                except (InputValidationError, KeyError, ValueError, TypeError, RuntimeError):
                     raise InputValidationError(
-                        f"Invalid functional selection row {line_number}: {error}."
-                    ) from error
-    except (OSError, UnicodeError, csv.Error) as error:
-        raise InputValidationError(f"Unable to read functional selection '{source}': {error}") from error
+                        f"Invalid functional selection row {line_number}; check category, position and required field values."
+                    ) from None
+    except (OSError, UnicodeError, csv.Error):
+        raise InputValidationError(
+            "Unable to read functional selection TSV; check encoding and tab-separated structure."
+        ) from None
     return tuple(selected)
-
 
 __all__ = [
     "FunctionalBackend", "FunctionalPrediction", "FunctionalPrioritizationRequest",

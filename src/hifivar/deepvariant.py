@@ -164,7 +164,7 @@ class DeepVariantWrapper:
         create_writable_mounts: bool = False,
     ) -> list[str]:
         self._validate_contract(request)
-        return self.runtime.command_prefix(
+        command = self.runtime.command_prefix(
             request,
             create_writable_mounts=create_writable_mounts,
         ) + [
@@ -179,6 +179,9 @@ class DeepVariantWrapper:
             f"--logging_dir={request.logging_directory.absolute()}",
             "--vcf_stats_report=false",
         ]
+        if request.region is not None:
+            command.append(f"--regions={request.region}")
+        return command
 
     def plan_command(
         self,

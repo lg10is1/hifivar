@@ -1,5 +1,139 @@
 # HiFiVar Architecture
 
+[简体中文](ARCHITECTURE.zh-CN.md)
+
+## Current overview (RC5 source/package candidate)
+
+The source/package candidate is `0.1.0rc5`; RC4 is the previous independently
+validated public baseline. Check the [Releases page](https://github.com/lg10is1/hifivar/releases)
+for available tags and package assets rather than inferring publication from source.
+Current execution layers are configuration/reference/input contracts,
+tool-specific wrappers, shared `CommandRunner`, modular Snakemake branches,
+and independent QC/provenance/review/benchmark reports. External caller
+algorithms and databases are not bundled or replaced.
+
+A later source increment extends the HiPhase boundary to explicitly selected
+pbsv/Sawfish SV and/or TRGT inputs alongside small variants. The producer DAG
+declares each category dependency and separate phased VCF/index; one native
+HiPhase command receives repeated paired input/output options. Small-only defaults
+remain unchanged. Identified installed-source regional cases independently
+completed native joint phasing and, separately, a two-technical-label batch
+with all three cohort tracks. These cases do not certify every later package or
+whole-genome combination. The historical Phase 6 section below retains its
+earlier small-only scope. See [joint phasing](docs/joint_phasing.md) and the
+[complete batch template](docs/batch_multivariant_run.md). No phasing accuracy is inferred.
+
+Small/SV/TR workflows consume compatible indexed alignments. The opt-in Phase
+15 experiment performs raw nested FASTQ sampling, pbmm2 alignment, coverage,
+DeepVariant and hap.py observations. A separate minimap2/input-classification
+boundary also exists. The development-source `hifivar run` routes indexed BAMs
+to selected per-sample small/read-SV/TR/phasing branches. Opt-in raw input
+preparation sequentially aligns FASTQ or native uBAM, seals validated BAM/index
+receipts, then launches the existing calling DAG. This is a two-stage invocation,
+not one all-branch raw-read DAG. CRAM remains deferred at the main launcher.
+Explicit benchmark routing is now available through a separate optional consumer
+DAG; see [capabilities and evidence](docs/capabilities.md).
+Later development revisions route explicitly declared assembly FASTQ inputs,
+ready haplotype FASTAs, and ready annotation/cohort sources; they are not implied
+by the earlier payload. Ready FASTAs use `assembly_sv.input_manifest` with
+`assembly.enabled: false`, not dummy reads or a fabricated hifiasm receipt.
+The launcher binds complete FASTA/manifest identities to an attempt-scoped
+`VALIDATION_ONLY` input record. A newly executed PAV/SVIM-asm step has its own
+native receipt. Reports keep input reuse, new assembly, and new calling distinct;
+see [ready assembly inputs](docs/ready_assemblies.md).
+The basic calling/raw-preparation launcher is included in the separately
+identified [15 October development payload](docs/rc5_candidate.md#validated-development-payload--已验收开发包).
+Later assembly, source-plan and consumer extensions require their own identified
+payload; they are not retroactively included in that build, the initial
+security-only RC5 build or RC1–RC4 assets. See
+[execution guide](docs/raw_input_run.md).
+
+The RC5 downstream-source contract separates source intent from
+execution evidence. An explicit plan selects generated producer/output roles or
+existing external artifacts. Producer bridges seal attempt-linked command and
+output receipts; only validated generated sources become ready manifests for a
+second, consumer-only DAG. Final reports retain missing-step, failed-attempt and
+dry-run distinctions instead of inferring success from old result files.
+Caller algorithms, category separation and benchmark definitions are unchanged.
+Consumer receipts bind the actual selected VCF/index sources and owned handoff
+controls to the downstream stage, rather than relying on descriptive metadata.
+Failed attempts can retain failed-artifact diagnostics without promoting missing
+outputs or relaxing frozen-control identity checks.
+Generated selectors require the selected attempt's native producer receipt;
+they must not borrow a receipt from another attempt. For assembly-SV, GENERATED
+describes the new caller output and can follow either new hifiasm or explicitly
+validated ready FASTAs. Neither source intent nor successful scheduler exit
+alone proves calling completion. Native acceptance is specific to a frozen
+source/package and configured route, not every later development payload; see
+[handoff contract](docs/indexed_bam_run.md#explicit-downstream-handoff--显式下游衔接).
+
+Producer rule registration follows each module's enabled switch, including
+individual read-SV caller selection. Consumer-only DAGs may read ready files
+inside the ordinary producer output namespace without scheduling disabled
+producers. Missing inputs still fail; they are not repaired by reenabling tools.
+External-only harmonization is controlled by its own switch, independently of
+read-SV calling. This source correction follows a native handoff failure. Subsequent installed
+regional source-handoff cases were independently accepted, including generated
+small/SV benchmark and TR review. Those exact cases do not establish every
+backend combination or whole-genome end-to-end acceptance.
+
+hap.py calls now use an isolated runtime allowlist because the tool can record
+its environment; runinfo permission handling covers both success and failure.
+This is not global environment isolation for every tool or an OS sandbox.
+
+An independent development `hifivar review` entry now prepares offline IGV
+batches and pending manifests, then imports explicit reviewer TSV decisions
+into a separate evidence directory. It reuses Phase 10 planning, never executes
+IGV during preparation and never upgrades a user declaration to truth or
+authenticated review. That standalone entry does not launch calling; historical
+packages remain unchanged. See [review CLI](docs/review_cli.md).
+
+The later RC5 source-plan review bridge additionally routes an explicitly
+selected final IGV consumer from the calling launcher. Producer, optional
+annotation/cohort and review DAGs remain separate stages within one analysis
+invocation. Same-attempt source receipts and actual prepared BAM bindings are
+required; review receipts seal commands/images but leave human status
+NOT_REVIEWED. Report generation is still a separate explicit command. See
+[review source execution](docs/review_sources.md); historical assets are unchanged.
+
+The development `doctor --preflight` reuses the fresh calling-launcher's
+contracts and existing wrappers for opt-in native version/BAM metadata probes.
+It creates no analysis/run outputs, does not start containers and preserves
+NOT_CHECKED for unmeasured scope. Foundation doctor remains unchanged; this is
+not all-workflow readiness or accuracy validation. See [preflight](docs/preflight.md).
+
+The latest development launcher can additionally route explicitly enabled
+within-sample read-SV harmonization. Each sample's generated callers feed its
+own existing Phase 9 Jasmine/evidence/Truvari rule. The rule bridge restricts
+AnalysisContext to its wildcard sample; it never combines different samples.
+Later RC5 source also routes explicitly declared ready read/assembly SV
+inputs, binding their VCF/index bytes to frozen inputs or current producer receipts.
+Default-disabled behavior and caller algorithms are unchanged; see
+[integration guide](docs/sv_harmonization_run.md).
+
+Linux regional acceptance includes two separate, two-sample execution records:
+a 17-job small/read-SV/TRGT/HiPhase run and a later 13-job read-SV calling plus
+within-sample harmonization run. Both start from existing regional BAMs. They
+demonstrate orchestration within their configured scope, not a combined
+all-module raw-input DAG, WGS scalability or matched-truth accuracy.
+
+The phase-by-phase sections below preserve implementation history. References
+to "current" or "future" inside earlier sections describe that phase at the
+time, not today's complete feature inventory. Use this overview and
+[project status](docs/project_status.md) for current supported boundaries.
+
+## Current source-role provenance boundary
+
+Source assembly-input roles are not inferred from filenames or phased GT.
+Unbound external assembly roles remain explicitly unknown. Generated assembly-SV
+requests bind role/FASTA identities to the same-attempt assembly receipt. Ready
+FASTA requests instead bind the explicit manifest and input-validation record;
+they do not invent an assembly receipt. The consumer rechecks the appropriate
+lineage. These metadata describe source inputs, never
+per-variant haplotype support or phase accuracy. Harmonization's preflight
+requirements follow its own switch, independently of read calling. Unprobed
+external backends retain NOT_CHECKED rather than borrowing another track's pass.
+
 ## Scope
 
 HiFiVar will orchestrate established bioinformatics tools rather than develop new SNV, Indel, or structural-variant callers in v0.1. External tools will be isolated behind dedicated wrappers and executed through shared infrastructure added in later phases.
@@ -736,6 +870,13 @@ SVs, and TRs remain separate artifact families.
 
 ## Phase 13 benchmark/truth-set boundary
 
+The RC5 launcher increment also accepts an explicit
+[`benchmark.source_plan`](docs/benchmark_run.md). It freezes matched truth and
+regions, resolves native queries from external identities or selected-attempt
+producer receipts, and executes a separate benchmark consumer DAG. Its receipt
+binds actual comparator commands and metrics, not universal accuracy. TR-only
+comparison is in-process. The historical standalone rules remain separate.
+
 Phase 13 is an optional fan-out from immutable variant artifacts:
 
 ```text
@@ -825,6 +966,20 @@ profile comparisons; distinct replicates keep distinct seeds.
 the streaming FASTQ boundary and the `CommandRunner`-only samtools boundary.
 Target coverage is not observed
 coverage. A lowest supported assessed depth is dataset- and policy-specific,
-never a universal sequencing recommendation. The Snakemake branch materializes
-inputs only; it does not alter caller semantics, invent an optimizer, or enter
-Phase 16.
+never a universal sequencing recommendation. Materialization-only mode and
+opt-in end-to-end benchmark mode are separate. Neither alters caller semantics,
+invents an optimizer, or enters Phase 16.
+
+## Current BND consumer boundary
+
+Explicit selected annotation/review consumers parse native BND local/ALT anchors and preserve direction, record identity and unresolved mate QC. Single/virtual endpoints do not become spans or invented IGV loci. Ready-input and explicitly selected generated `bnd_vcf` annotation roles require the complete verified native-ledger bundle. Generated members additionally bind to same-attempt harmonization outputs; native `vcf` is never silently substituted. Source plans learn generated paths only from receipts; standalone harmonization is independent of read calling. This does not infer fusions or establish BND truth accuracy. See [junction consumers](docs/bnd_junction_consumers.md).
+
+### Optional caller-support selection
+
+`sv_support_selection.py` creates an explicitly configured, separate selection
+bundle after full Phase 9 harmonization. SUPP_VEC membership is checked against
+the exact source order and complete evidence rows. Native artifacts and existing
+consumer roles are unchanged; manifest-last publication, source/output hashes
+and exact retained-line readback bind the derived result. No confidence model
+or automatic BND-pair completeness is implied. See
+[the configuration contract](docs/sv_support_selection.md).

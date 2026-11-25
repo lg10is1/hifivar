@@ -1,5 +1,11 @@
 # Phase 14 — Reporting, packaging, release and CI hardening
 
+[中文阶段说明](../zh_CN/phases/phase14.md)
+
+Historical RC4 phase snapshot: the status and future-work statements below refer
+to that checkpoint. For later launcher, VEP and Phase 15 capabilities use the
+[current capability/evidence matrix](../capabilities.md); older assets are unchanged.
+
 Status: implementation complete; HiFiVar 0.1.0rc4 independent Linux release
 validation complete.
 

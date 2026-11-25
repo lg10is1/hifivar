@@ -14,6 +14,9 @@ from hifivar.context import AnalysisContext
 from hifivar.exceptions import ConfigurationError, InputValidationError
 from hifivar.hiphase import HiPhaseWrapper, PhasingResult, PhasingResultStatus
 from hifivar.phasing import PhasingRequest, PhasingResources
+from hifivar.joint_phasing import PhasingTrackInput, phasing_options
+from hifivar.sv import StructuralVariantArtifact
+from hifivar.tr import TandemRepeatArtifact
 from hifivar.serialization import (
     standardize_data,
     utc_now_iso8601,
@@ -38,6 +41,9 @@ class Phase6Settings:
     tabix_executable: str
     resources: PhasingResources
     overwrite: bool = False
+    sv_caller: str | None = None
+    include_tr: bool = False
+    global_realignment: str = "auto"
 
     def __post_init__(self) -> None:
         if self.backend != "hiphase":
@@ -50,6 +56,8 @@ class Phase6Settings:
             raise ConfigurationError("Phase 6 resources must be PhasingResources.")
         if not isinstance(self.overwrite, bool):
             raise ConfigurationError("Phase 6 overwrite must be boolean.")
+        phasing_options({"sv_caller": self.sv_caller, "include_tr": self.include_tr,
+                         "global_realignment": self.global_realignment})
 
     @classmethod
     def from_config(cls, config: Mapping[str, object]) -> "Phase6Settings":
@@ -67,6 +75,9 @@ class Phase6Settings:
                     runtime_minutes=section["runtime_minutes"],  # type: ignore[arg-type]
                 ),
                 overwrite=section["overwrite"],  # type: ignore[arg-type]
+                sv_caller=phasing_options(section)[0],
+                include_tr=phasing_options(section)[1],
+                global_realignment=phasing_options(section)[2],
             )
         except (KeyError, TypeError, ValueError) as error:
             raise ConfigurationError(f"Invalid Phase 6 settings: {error}") from error
@@ -78,6 +89,9 @@ class Phase6Settings:
             "tabix_executable": self.tabix_executable,
             "resources": self.resources.to_dict(),
             "overwrite": self.overwrite,
+            "sv_caller": self.sv_caller,
+            "include_tr": self.include_tr,
+            "global_realignment": self.global_realignment,
         }
 
 
@@ -152,6 +166,8 @@ def run_phase6(
     *,
     alignment_artifacts: Mapping[str, AlignmentArtifact],
     small_variant_artifacts: Mapping[str, SmallVariantArtifact],
+    sv_variant_artifacts: Mapping[str, StructuralVariantArtifact] | None = None,
+    tandem_repeat_artifacts: Mapping[str, TandemRepeatArtifact] | None = None,
     output_directory: str | Path,
     config: Mapping[str, object],
     dry_run: bool = False,
@@ -168,8 +184,15 @@ def run_phase6(
         tabix_executable=settings.tabix_executable,
     )
     expected = {record.sample.sample_id for record in context.samples}
+    sv_variant_artifacts = sv_variant_artifacts or {}
+    tandem_repeat_artifacts = tandem_repeat_artifacts or {}
+    if sv_variant_artifacts and settings.sv_caller is None:
+        raise InputValidationError("Phase 6 SV artifacts require explicit phasing.sv_caller.")
+    if tandem_repeat_artifacts and not settings.include_tr:
+        raise InputValidationError("Phase 6 TR artifacts require explicit phasing.include_tr.")
     unknown = sorted(
-        (set(alignment_artifacts) | set(small_variant_artifacts)).difference(expected)
+        (set(alignment_artifacts) | set(small_variant_artifacts)
+         | set(sv_variant_artifacts) | set(tandem_repeat_artifacts)).difference(expected)
     )
     if unknown:
         raise InputValidationError(f"Phase 6 received artifacts for unknown samples: {unknown!r}.")
@@ -184,12 +207,31 @@ def run_phase6(
             raise InputValidationError(
                 f"Phase 6 requires BAM and small-variant artifacts for '{sample_id}'."
             ) from error
+        additional = []
+        if settings.sv_caller is not None:
+            artifact = sv_variant_artifacts.get(sample_id)
+            if not isinstance(artifact, StructuralVariantArtifact):
+                raise InputValidationError(f"Phase 6 requires selected SV artifact for '{sample_id}'.")
+            if artifact.caller.value != settings.sv_caller or (
+                artifact.reference_fasta.resolve() != context.reference.fasta.resolve()
+            ):
+                raise InputValidationError("Phase 6 SV caller/reference differs from the declared selection.")
+            additional.append(PhasingTrackInput("sv", artifact.caller.value, artifact.sample_id,
+                artifact.reference_build, artifact.vcf_path, artifact.index_path))
+        if settings.include_tr:
+            artifact = tandem_repeat_artifacts.get(sample_id)
+            if not isinstance(artifact, TandemRepeatArtifact):
+                raise InputValidationError(f"Phase 6 requires TRGT artifact for '{sample_id}'.")
+            additional.append(PhasingTrackInput("tr", "trgt", artifact.sample_id,
+                artifact.reference_build, artifact.vcf_path, artifact.vcf_index_path))
         request = PhasingRequest(
             alignment,
             small,
             output_root / f"{sample_id}.phased.vcf.gz",
             settings.resources,
             settings.overwrite,
+            additional_inputs=tuple(additional),
+            global_realignment=settings.global_realignment,
         )
         result = engine.run(
             request,

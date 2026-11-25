@@ -1,5 +1,7 @@
 # Contributing
 
+[简体中文](CONTRIBUTING.zh-CN.md)
+
 HiFiVar welcomes reproducible bug reports and narrowly scoped changes.
 
 Before opening a change:

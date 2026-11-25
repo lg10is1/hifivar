@@ -1,5 +1,7 @@
 # Phase 13 — Benchmark / Truth-set Evaluation
 
+[中文阶段说明](../zh_CN/phases/phase13.md)
+
 Status: implementation complete; Linux/HPC real-tool validation complete for
 the validated hap.py, Truvari, and TR comparison boundaries.
 

@@ -201,6 +201,22 @@ def test_environment_override_preserves_existing_environment() -> None:
     assert result.stdout.splitlines() == ["abc123", "True"]
 
 
+def test_isolated_environment_does_not_inherit_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ALPHA_GENOME_API_KEY", "test-only-secret")
+    code = (
+        "import os; "
+        "print(os.environ.get('ALPHA_GENOME_API_KEY', 'ABSENT')); "
+        "print(os.environ['HIFIVAR_TEST_VALUE'])"
+    )
+    result = CommandRunner().run(
+        python_command(code),
+        env={"HIFIVAR_TEST_VALUE": "explicit"},
+        inherit_env=False,
+    )
+    assert result.stdout is not None
+    assert result.stdout.splitlines() == ["ABSENT", "explicit"]
+
+
 def test_invalid_environment_override_is_rejected() -> None:
     """Environment keys and values must remain strings for subprocess."""
     with pytest.raises(InputValidationError, match="strings to strings"):

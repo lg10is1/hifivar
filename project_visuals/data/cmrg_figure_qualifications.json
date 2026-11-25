@@ -1,0 +1,15 @@
+{
+  "source": "hg002_cmrg_sv_benchmark.tsv",
+  "source_sha256": "648864c73fd3b85971bf1c0edea8432953d4a37963e2569e094b42aed28b0be8",
+  "scope": "HG002, GRCh38 CMRG v1.00 challenging medically relevant genes only; not whole-genome SV performance",
+  "interpretation": "Historical point estimates; no confidence intervals; caller-specific input preprocessing prevents a controlled caller ranking. Inclusion does not independently close every historical identity chain.",
+  "callers": {
+    "Sawfish": {
+      "figure_disposition": "EXCLUDE_UNRESOLVED_SAMPLE_IDENTITY",
+      "reason": "Historical VCF sample header is UnknownSampleName; original-read-to-derived-BAM identity chain is unresolved. Preserve numerical row as qualified archival evidence, not an unqualified comparative figure."
+    },
+    "Sniffles2": {"figure_disposition": "INCLUDE_QUALIFIED_HISTORICAL"},
+    "pbsv": {"figure_disposition": "INCLUDE_QUALIFIED_HISTORICAL"},
+    "cuteSV": {"figure_disposition": "INCLUDE_QUALIFIED_HISTORICAL"}
+  }
+}

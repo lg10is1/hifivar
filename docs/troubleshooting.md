@@ -1,5 +1,7 @@
 # Troubleshooting
 
+[简体中文](zh_CN/troubleshooting.md)
+
 ## Command not found
 
 Activate the environment and verify `python -m pip show hifivar`. For a wheel

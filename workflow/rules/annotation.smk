@@ -24,8 +24,8 @@ if ANNOTATION_ENABLED:
         raise WorkflowError("annotation.enabled requires annotation.input_manifest.")
     if ANNOTATION_CONFIG.get("functional_enabled") is True:
         raise WorkflowError(
-            "AlphaGenome is currently an interface-only boundary; run it with an "
-            "explicit injected backend after Linux/cloud verification."
+            "Use 'hifivar functional alphagenome' with an explicit selected-variant "
+            "plan and the user's own API environment credential; automatic annotation routing is not enabled."
         )
     ANNOTATION_MANIFEST = Path(configured_manifest).expanduser()
     ANNOTATION_ROWS = read_annotation_input_rows(ANNOTATION_MANIFEST)

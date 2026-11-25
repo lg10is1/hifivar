@@ -1,5 +1,7 @@
 # Benchmark Data Dictionary
 
+[简体中文](benchmark_data_dictionary.zh-CN.md)
+
 ## File: hg002_small_variant_benchmark.tsv
 
 | Column | Type | Description |
@@ -46,3 +48,14 @@
 | recall | float | Recall score (0.0-1.0) |
 | f1 | float | F1 score (0.0-1.0) |
 | gt_concordance | float | Genotype concordance (0.0-1.0) |
+
+### Historical figure qualification
+
+The TSV preserves all four archived numerical rows. The checksum-pinned
+`cmrg_figure_qualifications.json` controls which rows enter comparison figures.
+Sawfish is excluded by default because its historical physical sample header
+is `UnknownSampleName` and the complete input identity chain remains unresolved.
+It is not silently renamed or removed from the archive. Other included rows
+remain qualified historical estimates, not a controlled caller ranking.
+The scope is CMRG challenging medically relevant genes, not whole-genome SV
+performance. A changed TSV requires a renewed qualification review.

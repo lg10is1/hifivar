@@ -1,5 +1,7 @@
 # Phase 11 — Annotation / Functional Prioritization
 
+[中文阶段说明](../zh_CN/phases/phase11.md)
+
 **Status: COMPLETE**
 
 Phase 12 is **NOT STARTED**.
@@ -120,3 +122,31 @@ credentialed production backend has been independently verified.
 - Provenance and raw-caller immutability: complete.
 - Optional Snakemake annotation branch: complete.
 - Phase 12: not started.
+
+## Development junction-aware overlap increment
+
+Selected BND records use explicit local/ALT mate anchors, never native END as an event span. Unknown single and virtual 0/N+1 anchors retain separate statuses. Ordinary SV/TR interval behavior is preserved. Optional explicit derived sources require the complete verified bundle and attempt-bound input identities. See [junction consumers](../bnd_junction_consumers.md). Endpoint overlap is not fusion, functional truth or call confidence.
+
+## Development TRGT INFO/TRID selection
+
+TRGT commonly emits raw VCF ID `.` and stores its locus name in INFO/TRID.
+For `variant_category: tr` with declared `source_tool: trgt`, explicitly select
+`TRID:EPM1_CSTB`, rather than guessing that the locus name is a VCF ID.
+Generated-source plans use the same spelling in `variant_ids`.
+Mixed ordinary-ID/TRID selectors, missing or duplicated selected TRIDs,
+inconsistent REF/END and reference bounds fail closed. No raw ID, allele,
+genotype or caller file is rewritten. Plain VCF-ID selection remains available
+as the legacy path; SV/BND IDs keep their existing behavior.
+
+The selected repeat spans `POS + 1` through `INFO/END` in one-based inclusive
+coordinates. VCF POS is the preceding anchor, not part of the repeated sequence.
+BED sources remain zero-based half-open. An anchor-only BED overlap must not be
+reported as repeat overlap. Explicit TRGT overlap rows add `repeat_json`,
+recording the raw VCF ID, TRID, selector, source/record SHA256 and record ordinal.
+`repeat_annotations` retains selected-record provenance even when no BED feature
+overlaps. Other overlap routes retain their existing TSV columns.
+
+TRID selection is used only for bounded overlap inspection. ANNOVAR and VEP
+continue to annotate the whole selected source VCF; `variant_ids` is not an
+implicit record filter for either tool. Support and overlap are not calling
+confidence, truth, methylation, pathogenicity or clinical significance.

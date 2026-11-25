@@ -1,5 +1,7 @@
 # Phase 3: DeepVariant Small-Variant Calling
 
+[中文阶段说明](../zh_CN/phases/phase03.md)
+
 **Phase 3 status: COMPLETE**
 
 ## Phase 3.1: DeepVariant Wrapper — COMPLETE
@@ -84,6 +86,23 @@ version, and UTC timestamp. JSON/YAML writers are atomic and protect existing
 reports unless overwrite is explicit.
 
 ## Final Phase 3 behavior
+
+### Development-source optional region contract
+
+`small.region` defaults to null. An explicit single `contig:start-end` interval
+is 1-based inclusive and must match the configured reference FAI exactly in
+name and bounds. The wrapper passes it as one `--regions` argument for native,
+Docker and Apptainer execution; `run_phase3`, the Snakemake bridge and batch
+launcher all preserve it. No interval lists, BED inputs, chromosome renaming,
+implicit build conversion or output clipping is performed. Null does not add
+an argument or alter the existing full-reference behavior.
+
+Request/settings provenance includes `calling_region` and
+`requested_calling_scope`; the launcher freezes the effective configuration and
+refuses resume with a changed region. Regional calling is not a whole-genome
+claim, a guarantee of coverage, or a restriction on other callers. See the
+[batch entry guide](../indexed_bam_run.md) for scope and edge limitations.
+Phase 15 does not consume this option and rejects non-null regions.
 
 | Input at Phase 3 boundary | Behavior |
 | --- | --- |

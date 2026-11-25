@@ -7,7 +7,7 @@ import heapq
 import shutil
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
 
@@ -15,14 +15,16 @@ from hifivar.command import CommandRunner, format_command
 from hifivar.exceptions import OutputValidationError, ToolVersionError
 from hifivar.harmonization import HarmonizedSvArtifact, SVHarmonizationRequest, validate_harmonized_artifact, write_evidence_table
 from hifivar.validation import validate_output_file
+from hifivar.sv_input_identity import SourceIdentityResult, SourceIdentityWrapper
 
 
 _VERSION = re.compile(r"(\d+(?:\.\d+)+)")
 _CONTIG_HEADER = re.compile(r"^##contig=<ID=([^,>]+)")
 _INFO_HEADER = re.compile(r"^##INFO=<ID=([^,>]+)")
 _FORMAT_HEADER = re.compile(r"^##FORMAT=<ID=([^,>]+)")
+_FILTER_HEADER = re.compile(r"^##FILTER=<ID=([^,>]+)")
 _VCF_FILEFORMAT = re.compile(r"^##fileformat=VCFv(\d+)\.(\d+)$")
-_VCF44_MIN_TABIX = (1, 23, 1)
+VCF44_MIN_TABIX = (1, 23, 1)
 _SORT_CHUNK_RECORDS = 100_000
 
 
@@ -49,12 +51,14 @@ class JasmineResult:
     tool_versions: dict[str, str] | None = None
     runtime_seconds: float = 0.0
     artifact: HarmonizedSvArtifact | None = None
+    source_identity: SourceIdentityResult | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {"request": self.request.to_dict(), "status": self.status.value,
                 "commands": [item.to_dict() for item in self.commands],
                 "tool_versions": self.tool_versions, "runtime_seconds": self.runtime_seconds,
-                "artifact": self.artifact.to_dict() if self.artifact else None}
+                "artifact": self.artifact.to_dict() if self.artifact else None,
+                **({"source_identity": self.source_identity.to_dict()} if self.source_identity else {})}
 
 
 class JasmineWrapper:
@@ -167,7 +171,16 @@ class JasmineWrapper:
             jasmine_prefix=jasmine_prefix,
         )
         versions = self.detect_versions(jasmine_prefix=jasmine_prefix)
-        unzipped_inputs = self._prepare(request)
+        source_identity = None
+        analysis_sources = None
+        if request.input_identity_policy is not None:
+            source_identity = SourceIdentityWrapper(bgzip_executable=self.bgzip, tabix_executable=self.tabix,
+                runner=self.runner).run(request.runnable_sources, sample_id=request.sample_id,
+                reference=request.reference, output_directory=request.output_vcf.parent.absolute() / "source-identity-v1",
+                policy=request.input_identity_policy)
+            analysis_sources = tuple(replace(source, vcf_path=view, index_path=Path(str(view) + ".tbi"))
+                                     for source, view in zip(request.runnable_sources, source_identity.views))
+        unzipped_inputs = self._prepare(request, sources=analysis_sources) if analysis_sources is not None else self._prepare(request)
         raw = request.work_directory / f"{request.sample_id}.jasmine.raw.vcf"
         sorted_vcf = request.work_directory / f"{request.sample_id}.jasmine.sorted.vcf"
 
@@ -193,7 +206,10 @@ class JasmineWrapper:
             )
             runtime += result.duration_seconds
 
-        write_evidence_table(request, request.output_vcf)
+        if source_identity is not None:
+            write_evidence_table(request, request.output_vcf, source_identity=source_identity)
+        else:
+            write_evidence_table(request, request.output_vcf)
         artifact = HarmonizedSvArtifact(
             sample_id=request.sample_id,
             reference_fasta=request.reference.fasta,
@@ -210,6 +226,7 @@ class JasmineWrapper:
                 raw,
                 sorted_vcf,
             ),
+            source_identity_manifest=source_identity.manifest_path if source_identity else None,
         )
         validated = validate_harmonized_artifact(
             artifact,
@@ -222,11 +239,13 @@ class JasmineWrapper:
             versions,
             runtime,
             validated,
+            source_identity,
         )
 
     @staticmethod
     def _prepare(
         request: SVHarmonizationRequest,
+        *, sources=None,
     ) -> tuple[Path, ...]:
         request.work_directory.mkdir(parents=True, exist_ok=True)
         request.output_vcf.parent.mkdir(parents=True, exist_ok=True)
@@ -243,7 +262,7 @@ class JasmineWrapper:
             _prepare_owned_file(owned, overwrite=request.overwrite)
 
         unzipped: list[Path] = []
-        for index, source in enumerate(request.runnable_sources):
+        for index, source in enumerate(request.runnable_sources if sources is None else sources):
             if source.vcf_path is None or source.index_path is None:
                 raise OutputValidationError(
                     f"Runnable caller '{source.caller}' lacks VCF/index."
@@ -339,6 +358,33 @@ def _source_field_headers(
     return info_definitions, format_definitions
 
 
+def _source_filter_headers(sources: tuple[Path, ...]) -> dict[str, tuple[str, ...]]:
+    """Retain verbatim source FILTER declarations, including conflicts.
+
+    Conflicts are checked only when an identifier is actually used and absent
+    from the native header. Non-identical declarations are not guessed to be
+    equivalent, and reserved PASS/missing markers require no source definition.
+    """
+    definitions: dict[str, list[str]] = {}
+    for source in sources:
+        try:
+            with source.open("r", encoding="utf-8", newline="") as handle:
+                for raw_line in handle:
+                    line = raw_line.rstrip("\r\n")
+                    match = _FILTER_HEADER.match(line)
+                    if match and match.group(1) not in {"PASS", "."}:
+                        values = definitions.setdefault(match.group(1), [])
+                        if line not in values:
+                            values.append(line)
+                    if line.startswith("#CHROM\t"):
+                        break
+        except (OSError, UnicodeError) as error:
+            raise OutputValidationError(
+                f"Unable to read source FILTER definitions '{source}': {error}"
+            ) from error
+    return {name: tuple(values) for name, values in definitions.items()}
+
+
 def _require_tabix_compatibility(raw_vcf: Path, tabix_version: str) -> None:
     """Reject a tabix version known to be incompatible with Jasmine VCFv4.4.
 
@@ -368,8 +414,8 @@ def _require_tabix_compatibility(raw_vcf: Path, tabix_version: str) -> None:
         return
 
     parsed_version = tuple(int(item) for item in tabix_version.split("."))
-    if parsed_version < _VCF44_MIN_TABIX:
-        minimum = ".".join(str(item) for item in _VCF44_MIN_TABIX)
+    if parsed_version < VCF44_MIN_TABIX:
+        minimum = ".".join(str(item) for item in VCF44_MIN_TABIX)
         raise ToolVersionError(
             f"Jasmine emitted VCFv{fileformat[0]}.{fileformat[1]}, but tabix "
             f"{tabix_version} is below the Linux-validated minimum {minimum}. "
@@ -388,8 +434,9 @@ def _sort_jasmine_vcf(
     """Sort Jasmine records without loading the complete VCF into memory.
 
     Jasmine 1.1.5 may emit chromosome blocks out of reference order and may
-    omit INFO/FORMAT declarations copied from its inputs.  These conditions
-    make a biologically valid merge impossible to index.  Preserve the raw
+    omit INFO/FORMAT/FILTER declarations copied from its inputs. Restore missing
+    source-backed dictionaries without treating successful indexing as proof
+    of complete header semantics or biological validity. Preserve the raw
     output, restore only definitions present in the source headers, and
     external-sort records using the contig order declared by Jasmine's output
     header.
@@ -399,13 +446,16 @@ def _sort_jasmine_vcf(
     temporary = destination.with_name(f".{destination.name}.hifivar.tmp")
     _prepare_owned_file(temporary, overwrite=overwrite)
     source_infos, source_formats = _source_field_headers(source_vcfs)
+    source_filters = _source_filter_headers(source_vcfs)
     headers: list[str] = []
     chrom_header: str | None = None
     contig_order: dict[str, int] = {}
     declared_infos: set[str] = set()
     declared_formats: set[str] = set()
+    declared_filters: set[str] = set()
     used_infos: set[str] = set()
     used_formats: set[str] = set()
+    used_filters: set[str] = set()
     chunks: list[Path] = []
     records: list[str] = []
 
@@ -424,6 +474,9 @@ def _sort_jasmine_vcf(
                     format_match = _FORMAT_HEADER.match(line)
                     if format_match:
                         declared_formats.add(format_match.group(1))
+                    filter_match = _FILTER_HEADER.match(line)
+                    if filter_match:
+                        declared_filters.add(filter_match.group(1))
                     continue
                 if line.startswith("#CHROM\t"):
                     chrom_header = line
@@ -440,7 +493,14 @@ def _sort_jasmine_vcf(
                 fields = line.split("\t")
                 if len(fields) < 8:
                     raise OutputValidationError("Malformed Jasmine VCF record.")
+                if not raw_line.endswith("\n"):
+                    raise OutputValidationError("Jasmine VCF record lacks a complete line ending.")
                 _record_sort_key(line, contig_order)
+                if fields[6] not in {"PASS", "."}:
+                    filters = fields[6].split(";")
+                    if any(value in {"", "PASS", "."} for value in filters):
+                        raise OutputValidationError("Malformed Jasmine FILTER identifiers.")
+                    used_filters.update(filters)
                 if fields[7] not in ("", "."):
                     used_infos.update(
                         item.partition("=")[0]
@@ -449,7 +509,7 @@ def _sort_jasmine_vcf(
                     )
                 if len(fields) > 8 and fields[8] not in ("", "."):
                     used_formats.update(fields[8].split(":"))
-                records.append(line + "\n")
+                records.append(raw_line)
                 if len(records) >= _SORT_CHUNK_RECORDS:
                     chunk = destination.with_name(
                         f".{destination.name}.sort.{len(chunks):06d}.tmp"
@@ -483,6 +543,22 @@ def _sort_jasmine_vcf(
                 "Jasmine used FORMAT identifiers without source definitions: "
                 f"{names}."
             )
+        missing_filters = used_filters - declared_filters
+        unknown_filters = missing_filters - source_filters.keys()
+        if unknown_filters:
+            names = ", ".join(sorted(unknown_filters))
+            raise OutputValidationError(
+                "Jasmine used FILTER identifiers without source definitions: "
+                f"{names}."
+            )
+        conflicting_filters = {
+            name for name in missing_filters if len(source_filters[name]) != 1
+        }
+        if conflicting_filters:
+            names = ", ".join(sorted(conflicting_filters))
+            raise OutputValidationError(
+                f"Jasmine used FILTER identifiers with conflicting source definitions: {names}."
+            )
 
         with temporary.open("x", encoding="utf-8", newline="\n") as output:
             for header in headers:
@@ -493,6 +569,9 @@ def _sort_jasmine_vcf(
             for name, definition in source_formats.items():
                 if name in missing_formats:
                     output.write(definition + "\n")
+            for name, definitions in source_filters.items():
+                if name in missing_filters:
+                    output.write(definitions[0] + "\n")
             output.write(chrom_header + "\n")
             if chunks:
                 if records:
@@ -572,4 +651,4 @@ def _step_log(path: Path | None, step: str) -> Path | None:
     return None if path is None else path.with_name(f"{path.stem}.{step}{path.suffix}")
 
 
-__all__ = ["JasmineCommandPlan", "JasmineResult", "JasmineResultStatus", "JasmineWrapper"]
+__all__ = ["JasmineCommandPlan", "JasmineResult", "JasmineResultStatus", "JasmineWrapper", "VCF44_MIN_TABIX"]

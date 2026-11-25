@@ -1,4 +1,5 @@
 from __future__ import annotations
+import html
 import json
 from pathlib import Path
 import pytest
@@ -55,3 +56,72 @@ def test_complete_plus_not_run_aggregates_to_partial(tmp_path: Path) -> None:
     not_run=TrackReport("benchmark","13","benchmark",FinalStatus.NOT_RUN,True)
     item=FinalRunReport("R",None,{"build":"GRCh38"},(),(complete,not_run),{})
     assert item.status is FinalStatus.PARTIAL
+
+
+@pytest.mark.parametrize("status,category,phase,message,warnings", [
+    (FinalStatus.COMPLETE, "review", "10",
+     "IGV execution is technical evidence only; human review remains NOT_REVIEWED.", ()),
+    (FinalStatus.PARTIAL, "small", "3",
+     "Expected unit receipts or source materialization are incomplete.",
+     ("Missing sample HG002 receipt; no completion inferred.",)),
+    (FinalStatus.FAILED, "sv", "4",
+     "Native caller failed with exit 9; retained output is not accepted.",
+     ("Inspect the recorded stderr before an authorized retry.",)),
+])
+def test_html_preserves_track_status_explanations(status, category, phase, message, warnings) -> None:
+    track = TrackReport("selected_track", phase, category, status, True,
+                        message=message, warnings=warnings)
+    report = FinalRunReport("R", None, {"build": "GRCh38"}, (), (track,), {})
+    rendered = report._html()
+    detail = rendered.split("<div class='track-details'>", 1)[1].split("</div>", 1)[0]
+    assert "<h3>selected_track</h3>" in detail
+    assert html.escape(message) in detail
+    assert all(html.escape(warning) in detail for warning in warnings)
+    assert f"class='status {status.value.lower()}'>{status.value}</td>" in rendered
+    if category == "review":
+        assert "NOT_REVIEWED" in detail
+    assert report.status is status
+
+
+def test_html_track_details_escape_text_and_keep_categories_associated() -> None:
+    review_name = '复核 <script>track()</script> & "A"'
+    review_message = '人工未判定 <img src=x onerror="review()"> & 中文说明'
+    review_warning = '保留原始 VCF <tag> & "review-warning"'
+    cohort_name = '批量结果 <cohort> & "B"'
+    cohort_message = '缺失样本不得当作参考基因型 <missing> & 中文'
+    cohort_warning = 'cohort-only <script>warning()</script> & "quoted"'
+    tracks = (
+        TrackReport(review_name, '10<&"\'>', "review", FinalStatus.COMPLETE, True,
+                    message=review_message, warnings=(review_warning,)),
+        TrackReport(cohort_name, "12", "cohort", FinalStatus.PARTIAL, True,
+                    message=cohort_message, warnings=(cohort_warning,)),
+    )
+    report = FinalRunReport("R", None, {"build": "GRCh38"}, (), tracks, {})
+    before_dict, before_markdown, before_status = report.to_dict(), report._markdown(), report.status
+    rendered = report._html()
+    details = [part.split("</div>", 1)[0] for part in rendered.split("<div class='track-details'>")[1:]]
+    assert len(details) == 2
+    for detail, own, other in (
+        (details[0], (review_name, review_message, review_warning), (cohort_name, cohort_message, cohort_warning)),
+        (details[1], (cohort_name, cohort_message, cohort_warning), (review_name, review_message, review_warning)),
+    ):
+        assert all(html.escape(value) in detail for value in own)
+        assert all(html.escape(value) not in detail for value in other)
+    assert "<script>" not in rendered and "<img " not in rendered and "<missing>" not in rendered
+    assert html.escape(tracks[0].phase) in rendered
+    assert report.to_dict() == before_dict
+    assert report._markdown() == before_markdown
+    assert report.status is before_status
+
+
+def test_html_absent_track_details_do_not_create_empty_placeholders() -> None:
+    tracks = (
+        TrackReport("none", "3", "small", FinalStatus.COMPLETE, True),
+        TrackReport("empty", "4", "sv", FinalStatus.PARTIAL, True,
+                    message="", warnings=("",)),
+    )
+    report = FinalRunReport("R", None, {"build": "GRCh38"}, (), tracks, {})
+    rendered = report._html()
+    assert "track-details" not in rendered
+    assert "<h3>" not in rendered and "<li></li>" not in rendered
+    assert "<table>" in rendered and "COMPLETE" in rendered and "PARTIAL" in rendered

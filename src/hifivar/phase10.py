@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Sequence
 
 from hifivar.exceptions import InputValidationError
-from hifivar.igv import IgvRunResult, IgvRunStatus, IgvWrapper
+from hifivar.igv import IgvRunResult, IgvRunStatus, IgvWrapper, _protect_write_paths
 from hifivar.review import ReviewManifest, ReviewResult, ReviewTarget
 
 
@@ -61,12 +61,24 @@ def run_phase10(
         batch_path=output / "review.igv.batch",
         snapshot_directory=output / "screenshots",
     )
+    stdout = output / "logs" / "igv.stdout.log" if not dry_run else None
+    stderr = output / "logs" / "igv.stderr.log" if not dry_run else None
+    manifest_outputs = (
+        ("manifest_json", output / "review_manifest.json"),
+        ("manifest_yaml", output / "review_manifest.yaml"),
+        ("manifest_tsv", output / "review_manifest.tsv"),
+        ("manifest_tsv_temporary", output / ".review_manifest.tsv.hifivar.tmp"),
+    )
+    _protect_write_paths(
+        plan, executable=wrapper.executable, stdout_path=stdout, stderr_path=stderr,
+        additional_outputs=manifest_outputs,
+    )
     igv_result = wrapper.run(
         plan,
         dry_run=dry_run,
         overwrite=overwrite,
-        stdout_path=output / "logs" / "igv.stdout.log" if not dry_run else None,
-        stderr_path=output / "logs" / "igv.stderr.log" if not dry_run else None,
+        stdout_path=stdout,
+        stderr_path=stderr,
     )
     results = tuple(
         ReviewResult(target=evidence.target, evidence=evidence)
@@ -80,6 +92,11 @@ def run_phase10(
     )
     report = Phase10RunReport(status, igv_result, manifest, output)
     if not dry_run:
+        # IGV may create files: recheck before writing independent review records.
+        _protect_write_paths(
+            plan, executable=wrapper.executable, stdout_path=stdout, stderr_path=stderr,
+            additional_outputs=manifest_outputs,
+        )
         manifest.write_json(output / "review_manifest.json", overwrite=overwrite)
         manifest.write_yaml(output / "review_manifest.yaml", overwrite=overwrite)
         manifest.write_tsv(output / "review_manifest.tsv", overwrite=overwrite)

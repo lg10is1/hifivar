@@ -30,7 +30,8 @@ def _snakemake() -> Path:
     return Path(found)
 
 
-def test_deepvariant_rule_dry_run_has_deterministic_handoff(tmp_path: Path) -> None:
+@pytest.mark.parametrize("region", [None, "chr1:1-4"])
+def test_deepvariant_rule_dry_run_has_deterministic_handoff(tmp_path: Path, region: str | None) -> None:
     fasta = tmp_path / "reference.fa"
     fasta.write_text(">chr1\nACGT\n", encoding="utf-8")
     Path(f"{fasta}.fai").write_text("chr1\t4\t6\t4\t5\n", encoding="utf-8")
@@ -52,7 +53,7 @@ def test_deepvariant_rule_dry_run_has_deterministic_handoff(tmp_path: Path) -> N
                     "workdir": str(tmp_path / "work"),
                     "outdir": str(tmp_path / "results"),
                 },
-                "small": {"enabled": True, "threads": 7, "memory_mb": 12345},
+                "small": {"enabled": True, "threads": 7, "memory_mb": 12345, "region": region},
             },
             sort_keys=False,
         ),

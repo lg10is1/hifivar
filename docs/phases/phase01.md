@@ -1,5 +1,7 @@
 # Phase 1: Core Bioinformatics Models
 
+[中文阶段说明](../zh_CN/phases/phase01.md)
+
 **Phase 1 status: COMPLETE**
 
 ## Phase 1.1: ReferenceGenome — COMPLETE

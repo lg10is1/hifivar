@@ -6,6 +6,7 @@ import csv
 import gzip
 import json
 import math
+import os
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -19,6 +20,18 @@ from hifivar.validation import validate_file, validate_output_file
 
 _VERSION = re.compile(r"(\d+(?:\.\d+)+)")
 _CONFIGURED_VERSION = re.compile(r"^\d+(?:\.\d+)+(?:[-+._][A-Za-z0-9][A-Za-z0-9._-]*)?$")
+_HAPPY_ENV_KEYS = frozenset({
+    "PATH", "HOME", "SYSTEMROOT", "WINDIR", "LD_LIBRARY_PATH",
+    "DYLD_LIBRARY_PATH", "CONDA_PREFIX", "TMPDIR", "TMP", "TEMP",
+    "LANG", "LC_ALL", "LC_CTYPE", "TZ", "PYTHONNOUSERSITE",
+    "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS",
+})
+
+
+def _happy_environment() -> dict[str, str]:
+    """Pass only runtime essentials; hap.py writes its environment to runinfo."""
+    return {key: value for key, value in os.environ.items() if key.upper() in _HAPPY_ENV_KEYS}
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,7 +137,10 @@ class HappyWrapper:
 
     def _resolve_version(self) -> tuple[str, str]:
         self.runner.require_executable(self.executable)
-        result = self.runner.run((self.executable, "--version"))
+        result = self.runner.run(
+            (self.executable, "--version"),
+            env=_happy_environment(), inherit_env=False,
+        )
         match = _VERSION.search("\n".join(value for value in (result.stdout, result.stderr) if value))
         if match is not None:
             return match.group(1), "command"
@@ -152,7 +168,15 @@ class HappyWrapper:
         if request.stratifications:
             _write_stratification_file(request.stratification_tsv, request.stratifications, overwrite=request.overwrite)
         version, version_source = self._resolve_version()
-        execution = self.runner.run(command, stderr_path=stderr_path)
+        runinfo = Path(f"{request.output_prefix}.runinfo.json")
+        try:
+            execution = self.runner.run(
+                command, stderr_path=stderr_path,
+                env=_happy_environment(), inherit_env=False,
+            )
+        finally:
+            if runinfo.is_file():
+                runinfo.chmod(0o600)
         validate_output_file(request.summary_csv)
         metrics_artifact = discover_happy_metrics(request.output_prefix)
         parse_happy_metrics_json(metrics_artifact)

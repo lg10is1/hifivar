@@ -135,17 +135,17 @@ class HaplotypeAssemblyArtifact:
     sample_id: str
     role: AssemblyRole
     path: Path
-    source_gfa: Path
-    hifiasm_version: str
+    source_gfa: Path | None
+    hifiasm_version: str | None
     file_size: int
-    reference_independent: bool = True
+    reference_independent: bool | None = True
 
     def to_dict(self) -> dict[str, object]:
         return {
             "sample_id": self.sample_id,
             "role": self.role.value,
             "path": str(self.path),
-            "source_gfa": str(self.source_gfa),
+            "source_gfa": str(self.source_gfa) if self.source_gfa is not None else None,
             "hifiasm_version": self.hifiasm_version,
             "file_size": self.file_size,
             "reference_independent": self.reference_independent,

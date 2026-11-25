@@ -1,0 +1,33 @@
+schema_version: 1
+reference:
+  fasta: synthetic.fa
+  build: HiFiVar_SYNTHETIC_NOT_HUMAN
+primer3_executable: primer3_core
+flank_bp: 400
+settings:
+  requested_pairs: 3
+  product_size_ranges:
+  - - 200
+    - 800
+targets:
+- target_id: snv_demo
+  vcf: synthetic.vcf
+  sample: DEMO
+  contig: demo
+  position: 501
+  ref: C
+  alt: A
+- target_id: del_demo
+  vcf: synthetic.vcf
+  sample: DEMO
+  contig: demo
+  position: 1501
+  ref: CTTTTAGCGACCGGGGGATAT
+  alt: C
+- target_id: ins_demo
+  vcf: synthetic.vcf
+  sample: DEMO
+  contig: demo
+  position: 2501
+  ref: C
+  alt: CGTCGATCGACTGACGTTCGA

@@ -70,27 +70,28 @@ SV_VCF_PATTERN = (OUTPUT_ROOT / "sv" / "{sample}.{caller}.sv.vcf.gz").as_posix()
 WORKFLOW_TARGETS += [*SV_VCFS, *SV_VCF_INDEXES]
 
 
-rule read_based_sv:
-    input:
-        reference=lambda wildcards: str(SV_CONTEXT.reference.fasta),
-        reference_index=lambda wildcards: str(SV_CONTEXT.reference.fai),
-        alignment=lambda wildcards: SV_ALIGNMENTS[wildcards.sample],
-        alignment_index=lambda wildcards: SV_ALIGNMENT_INDEXES[wildcards.sample]
-    output:
-        vcf=SV_VCF_PATTERN,
-        index=f"{SV_VCF_PATTERN}.tbi"
-    log:
-        (LOG_ROOT / "sv" / "{sample}.{caller}.log").as_posix()
-    threads:
-        lambda wildcards: int(_sv_caller_config(wildcards).get("threads", 8))
-    resources:
-        mem_mb=lambda wildcards: int(_sv_caller_config(wildcards).get("memory_mb", 16000)),
-        runtime_min=lambda wildcards: int(_sv_caller_config(wildcards).get("runtime_minutes", 1440))
-    params:
-        workdir=lambda wildcards: (
-            WORK_ROOT / "sv" / wildcards.caller / wildcards.sample
-        ).as_posix()
-    wildcard_constraints:
-        caller="sawfish|sniffles2|pbsv|cutesv"
-    script:
-        "../scripts/run_sv_caller.py"
+if SV_ENABLED:
+    rule read_based_sv:
+        input:
+            reference=lambda wildcards: str(SV_CONTEXT.reference.fasta),
+            reference_index=lambda wildcards: str(SV_CONTEXT.reference.fai),
+            alignment=lambda wildcards: SV_ALIGNMENTS[wildcards.sample],
+            alignment_index=lambda wildcards: SV_ALIGNMENT_INDEXES[wildcards.sample]
+        output:
+            vcf=SV_VCF_PATTERN,
+            index=f"{SV_VCF_PATTERN}.tbi"
+        log:
+            (LOG_ROOT / "sv" / "{sample}.{caller}.log").as_posix()
+        threads:
+            lambda wildcards: int(_sv_caller_config(wildcards).get("threads", 8))
+        resources:
+            mem_mb=lambda wildcards: int(_sv_caller_config(wildcards).get("memory_mb", 16000)),
+            runtime_min=lambda wildcards: int(_sv_caller_config(wildcards).get("runtime_minutes", 1440))
+        params:
+            workdir=lambda wildcards: (
+                WORK_ROOT / "sv" / wildcards.caller / wildcards.sample
+            ).as_posix()
+        wildcard_constraints:
+            caller="|".join(SV_CALLERS)
+        script:
+            "../scripts/run_sv_caller.py"

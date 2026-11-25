@@ -1,7 +1,25 @@
 # Known Limitations
 
+[简体中文](zh_CN/known_limitations.md)
+
 This document describes the known limitations of HiFiVar release
-candidate 0.1.0rc4 and its benchmark results.
+candidate 0.1.0rc4 and its benchmark results. Historical statements below are
+scoped to that payload, not the latest RC5 source.
+
+## Current development limitations
+
+The [capability/evidence matrix](capabilities.md) describes later staged raw-input,
+assembly, annotation/cohort, benchmark and review routing. The latest main launcher
+still defers CRAM, distributed Slurm execution and automatic all-tool deployment.
+Scoped native VEP execution exists; separate failed deployments remain failed.
+TR/phase/BND accuracy, independent biological replication, universal minimum-depth
+and sequencing-cost reduction are not established by regional engineering tests.
+Screenshots do not complete human review. Report generation remains explicit.
+
+The RC4 SV table uses CMRG only. Later HG002 GRCh38 draft-truth evaluations are
+separate fixed-scope studies, not retroactive changes to RC4 values or complete
+all-type genome truth. Do not interpret historical NOT_AVAILABLE below as a
+current inventory of all GIAB resources.
 
 ## 1. Benchmark scope limitations
 
@@ -28,11 +46,12 @@ genes only** (250 truth records, 216 eligible after size filtering).
 It is **not** a whole-genome SV truth benchmark. Whole-genome GRCh38
 read-SV benchmark: NOT_AVAILABLE.
 
-### No whole-genome SV truth
+### RC4 whole-genome SV truth boundary
 
-There is no complete, validated whole-genome GRCh38 SV truth set
-for comprehensive SV calling evaluation. The CMRG resource covers
-a specific subset of medically relevant regions.
+The RC4 evaluation did not establish comprehensive whole-genome, all-SV-type
+accuracy. Its CMRG resource covers a specific subset of medically relevant
+regions. Later draft resources retain their own build, regions, variant classes
+and limitations; availability alone is not a complete accuracy validation.
 
 ## 2. Tool and environment limitations
 
@@ -116,7 +135,7 @@ Functional annotation scores (e.g., from ANNOVAR, VEP, or
 AlphaGenome) do not represent variant calling confidence or
 truth status.
 
-## 5. Future work
+## 5. Future work recorded at the RC4 checkpoint
 
 - Whole-genome GRCh38 SV truth benchmark (pending GIAB resources)
 - Unified FASTQ-to-VCF pipeline
