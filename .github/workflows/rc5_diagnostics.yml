@@ -15,23 +15,29 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Read only failing test summaries
+      - name: Record test results in the run summary
         run: |
           for job in 138947419462 138947419908; do
-            gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/$job" --jq '[.status,.conclusion] | @tsv'
+            printf '### CI job %s\n\n' "$job" >> "$GITHUB_STEP_SUMMARY"
+            gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/$job" --jq '[.status,.conclusion] | join(" ")' >> "$GITHUB_STEP_SUMMARY"
             if gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/$job/logs" > "$RUNNER_TEMP/rc5-$job.txt"; then
-              python - "$job" "$RUNNER_TEMP/rc5-$job.txt" <<'PY'
-          import re
-          import sys
+              python - "$RUNNER_TEMP/rc5-$job.txt" <<'PY'
+          import os, re, sys
           from pathlib import Path
-          job, path = sys.argv[1:]
-          lines = Path(path).read_text(errors="replace").splitlines()
-          for line in lines:
-              message = re.sub(r"^\S+Z\s+", "", line)
-              if not (message.startswith(("FAILED ", "ERROR ", "E   "))):
-                  continue
-              message = re.sub(r"\x1b\[[0-9;]*m", "", message)
-              print("::notice title=RC5 job " + job + "::" + message.replace("%", "%25")[:700])
+          text = Path(sys.argv[1]).read_text(errors="replace")
+          text = re.sub(r"\x1b\[[0-9;]*m", "", text)
+          selected = []
+          for line in text.splitlines():
+              line = re.sub(r"^\S+Z\s+", "", line)
+              if re.search(r"(?:FAILED |ERROR )tests/|AssertionError|[0-9]+ failed", line):
+                  selected.append(line.strip()[:600])
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
+              print(f"\nDownloaded {len(text)} bytes. Selected {len(selected)} lines.\n", file=out)
+              for line in selected[-24:]:
+                  print("- " + line, file=out)
+                  print("::warning::" + line.replace("%", "%25"))
           PY
+            else
+              printf '\nLog download unavailable.\n' >> "$GITHUB_STEP_SUMMARY"
             fi
           done
