@@ -1,0 +1,66 @@
+name: Publish HiFiVar 0.1.0rc5
+
+on:
+  push:
+    branches:
+      - release/rc5-publish
+
+permissions:
+  contents: read
+
+concurrency: hifivar-0.1.0rc5-publish
+
+jobs:
+  github-prerelease:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: write
+    env:
+      TAG: v0.1.0-rc5
+      CANDIDATE_COMMIT: 06de6ba9d48b886b42f4550058d5966ac7ad9422
+    steps:
+      - name: Read the reviewed release notes
+        uses: actions/checkout@v7
+        with:
+          path: release-notes
+          persist-credentials: false
+      - name: Check out the release tag
+        uses: actions/checkout@v7
+        with:
+          ref: refs/tags/v0.1.0-rc5
+          path: release-source
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Build and audit the exact tagged source
+        working-directory: release-source
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_COMMIT"
+          python -m pip install build
+          python -m build
+          python scripts/audit_public_release.py . --artifacts-dir dist
+          cd dist
+          sha256sum hifivar-0.1.0rc5-py3-none-any.whl hifivar-0.1.0rc5.tar.gz > SHA256SUMS
+          sha256sum --check SHA256SUMS
+      - name: Verify a clean wheel installation
+        working-directory: release-source
+        run: |
+          python -m venv "$RUNNER_TEMP/rc5-smoke"
+          "$RUNNER_TEMP/rc5-smoke/bin/python" -m pip install dist/hifivar-0.1.0rc5-py3-none-any.whl
+          test "$("$RUNNER_TEMP/rc5-smoke/bin/hifivar" --version)" = "hifivar 0.1.0rc5"
+          "$RUNNER_TEMP/rc5-smoke/bin/hifivar" config validate
+          "$RUNNER_TEMP/rc5-smoke/bin/python" -c 'from hifivar.package_resources import installed_workflow_root; assert installed_workflow_root().joinpath("Snakefile").is_file()'
+      - name: Publish the GitHub prerelease and assets
+        working-directory: release-source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" \
+            dist/hifivar-0.1.0rc5-py3-none-any.whl \
+            dist/hifivar-0.1.0rc5.tar.gz \
+            dist/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease \
+            --title "HiFiVar 0.1.0rc5" \
+            --notes-file ../release-notes/RELEASE_NOTES_RC5.md
