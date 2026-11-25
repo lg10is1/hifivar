@@ -1,4 +1,4 @@
-name: Summarize HiFiVar RC5 test failures
+name: Record HiFiVar RC5 CI diagnosis
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
 
 permissions:
   actions: read
-  contents: read
+  contents: write
 
 jobs:
   summaries:
@@ -15,29 +15,31 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Record test results in the run summary
+      - uses: actions/checkout@v7
+      - name: Capture only failed synthetic-test names
         run: |
+          printf '# RC5 validation diagnostics\n\n' > RC5_CI_DIAGNOSIS.md
           for job in 138947419462 138947419908; do
-            printf '### CI job %s\n\n' "$job" >> "$GITHUB_STEP_SUMMARY"
-            gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/$job" --jq '[.status,.conclusion] | join(" ")' >> "$GITHUB_STEP_SUMMARY"
+            printf '## CI job %s\n\n' "$job" >> RC5_CI_DIAGNOSIS.md
+            gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/$job" --jq '[.status,.conclusion] | join(" ")' >> RC5_CI_DIAGNOSIS.md
             if gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/$job/logs" > "$RUNNER_TEMP/rc5-$job.txt"; then
-              python - "$RUNNER_TEMP/rc5-$job.txt" <<'PY'
-          import os, re, sys
+              python - "$RUNNER_TEMP/rc5-$job.txt" <<'PY' >> RC5_CI_DIAGNOSIS.md
+          import re, sys
           from pathlib import Path
           text = Path(sys.argv[1]).read_text(errors="replace")
           text = re.sub(r"\x1b\[[0-9;]*m", "", text)
-          selected = []
-          for line in text.splitlines():
-              line = re.sub(r"^\S+Z\s+", "", line)
-              if re.search(r"(?:FAILED |ERROR )tests/|AssertionError|[0-9]+ failed", line):
-                  selected.append(line.strip()[:600])
-          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
-              print(f"\nDownloaded {len(text)} bytes. Selected {len(selected)} lines.\n", file=out)
-              for line in selected[-24:]:
-                  print("- " + line, file=out)
-                  print("::warning::" + line.replace("%", "%25"))
+          tests = sorted(set(re.findall(r"(?:FAILED|ERROR) (tests[/\\][a-zA-Z0-9_/\\.]+::[a-zA-Z0-9_]+)", text)))
+          print(f"Log parsed ({len(text)} bytes).")
+          for name in tests:
+              print(f"- {name}")
           PY
             else
-              printf '\nLog download unavailable.\n' >> "$GITHUB_STEP_SUMMARY"
+              printf 'Log download unavailable.\n' >> RC5_CI_DIAGNOSIS.md
             fi
+            printf '\n' >> RC5_CI_DIAGNOSIS.md
           done
+          git -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
+            add RC5_CI_DIAGNOSIS.md
+          git -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
+            commit -m "Record isolated RC5 test identifiers"
+          git push origin HEAD:refs/heads/release/rc5-diagnostics
